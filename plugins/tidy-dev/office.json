@@ -1,0 +1,12 @@
+{
+  "title": "Software development",
+  "guests": { "title": "Contractors" },
+  "agents": {
+    "manager": { "title": "Manager", "item": "phone" },
+    "planner": { "title": "Planner", "item": "pinboard" },
+    "developer": { "title": "Developer", "item": "coffee" },
+    "reviewer": { "title": "Reviewer", "item": "clipboard" },
+    "security": { "title": "Security", "item": "shield" },
+    "tester": { "title": "Tester", "item": "signal", "screen": "tests" }
+  }
+}

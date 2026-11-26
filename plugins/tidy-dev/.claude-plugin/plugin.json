@@ -1,0 +1,7 @@
+{
+  "name": "tidy-dev",
+  "displayName": "Tidy Dev Team",
+  "description": "A software development team: one manager the user talks to, and specialists who do the work",
+  "version": "1.0.0",
+  "author": { "name": "gurhankokcu" }
+}
