@@ -1,0 +1,7 @@
+{
+  "name": "tidy-git-guard",
+  "displayName": "Tidy Git Guard",
+  "description": "A hook that blocks every git command that changes state",
+  "version": "1.0.0",
+  "author": { "name": "gurhankokcu" }
+}
