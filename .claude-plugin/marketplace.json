@@ -1,0 +1,10 @@
+{
+  "name": "tidy-plugins",
+  "description": "Plugins that keep the human in charge: small steps, gates, blind review, read-only git",
+  "owner": { "name": "gurhankokcu" },
+  "plugins": [
+    { "name": "tidy-dev", "source": "./plugins/tidy-dev" },
+    { "name": "tidy-office", "source": "./plugins/tidy-office" },
+    { "name": "tidy-git-guard", "source": "./plugins/tidy-git-guard" }
+  ]
+}
