@@ -1,0 +1,6 @@
+{
+  "name": "tidy-dev",
+  "version": "1.0.0",
+  "description": "A software development team: one manager the user talks to, and specialists who do the work",
+  "type": "module"
+}

@@ -1,23 +1,36 @@
 # tidy-dev
 
-A software development team for Claude Code: one manager you talk to, and specialists who do the work.
+A software development team for Claude Code and opencode: one manager you talk to, and specialists who do the work.
 
 You stay in charge. The team works in small steps, stops at every gate, reviews its own work blind, and never touches git.
 
 ## Install
+
+The agents and skills are written once, and both tools use the same files. Tested in Claude Code 2.1.332 and opencode 2.3.1. In opencode the manager's build and review flow has not had a full run.
+
+### Claude Code
 
 ```sh
 claude plugin marketplace add gurhankokcu/tidy-plugins     # once
 claude plugin install tidy-dev@tidy-plugins
 ```
 
+### opencode
+
+```sh
+opencode plugin add 'github:gurhankokcu/tidy-plugins#main::path:plugins/tidy-dev'
+```
+
+It needs opencode V2. The plugin follows the plugin API of opencode 2.3.1. It adds the agents, the skills and a command for each skill when opencode starts, and writes no files.
+
 ## Use
 
 Start the manager and talk to it:
 
-```sh
-claude --agent tidy-dev:manager
-```
+| Tool        | Start                                                                                              |
+| ----------- | -------------------------------------------------------------------------------------------------- |
+| Claude Code | `claude --agent tidy-dev:manager`                                                                  |
+| opencode    | Pick the `tidy-dev/manager` agent, or set `"default_agent": "tidy-dev/manager"` in `opencode.json` |
 
 | You say                                        | The manager does                                                                                                   |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -64,18 +77,23 @@ The manager stops at every gate and waits for you.
 
 ### Hands-on skills
 
-Without the manager, start plain `claude` and type one skill at a time. Each skill holds the whole job, so your session does the work the agent would do.
+Without the manager, start a plain session and type one skill at a time. Each skill holds the whole job, so your session does the work the agent would do.
 
-| Command                                  | Does                                                                  |
-| ---------------------------------------- | --------------------------------------------------------------------- |
-| `/tidy-dev:plan <feature>`               | Splits the feature into small numbered steps. Changes no code         |
-| `/tidy-dev:develop [steps] [notes]`      | Builds the given step with its tests, or the next step not built      |
-| `/tidy-dev:review [all] [focus]`         | Reviews the change in a fresh `reviewer` agent, so it stays blind     |
-| `/tidy-dev:security-check [all] [focus]` | Reviews the change for security in a fresh `security` agent           |
-| `/tidy-dev:reply <pasted review>`        | Answers each point of a review with a verdict. Changes no code        |
-| `/tidy-dev:fix <numbers>`                | Fixes the picked numbers and touches nothing else                     |
-| `/tidy-dev:test [e2e] [app] [focus]`     | Runs lint, type checks and tests. `app` also starts the app           |
-| `/tidy-dev:debug <bug>`                  | Finds the cause of a bug and reports numbered causes. Changes no code |
+| Claude Code                              | opencode                                 | Does                                                                  |
+| ---------------------------------------- | ---------------------------------------- | --------------------------------------------------------------------- |
+| `/tidy-dev:plan <feature>`               | `/tidy-dev/plan <feature>`               | Splits the feature into small numbered steps. Changes no code         |
+| `/tidy-dev:develop [steps] [notes]`      | `/tidy-dev/develop [steps] [notes]`      | Builds the given step with its tests, or the next step not built      |
+| `/tidy-dev:review [all] [focus]`         | `/tidy-dev/review [all] [focus]`         | Reviews the change in a fresh `reviewer` agent, so it stays blind     |
+| `/tidy-dev:security-check [all] [focus]` | `/tidy-dev/security-check [all] [focus]` | Reviews the change for security in a fresh `security` agent           |
+| `/tidy-dev:reply <pasted review>`        | `/tidy-dev/reply <pasted review>`        | Answers each point of a review with a verdict. Changes no code        |
+| `/tidy-dev:fix <numbers>`                | `/tidy-dev/fix <numbers>`                | Fixes the picked numbers and touches nothing else                     |
+| `/tidy-dev:test [e2e] [app] [focus]`     | `/tidy-dev/test [e2e] [app] [focus]`     | Runs lint, type checks and tests. `app` also starts the app           |
+| `/tidy-dev:debug <bug>`                  | `/tidy-dev/debug <bug>`                  | Finds the cause of a bug and reports numbered causes. Changes no code |
+
+| Tool        | How the fresh agent of a review starts    |
+| ----------- | ----------------------------------------- |
+| Claude Code | The command runs in it                    |
+| opencode    | The command asks your session to start it |
 
 The full debate is the manager's job. By hand it is one round at a time.
 
@@ -92,11 +110,14 @@ The full debate is the manager's job. By hand it is one round at a time.
 | `security`  | Reviews the same change for security only. Blind too                                 | No         |
 | `tester`    | Runs the checks, tries the app when asked, finds the cause of bugs                   | No         |
 
-All six run on `opus`. The manager uses `medium` effort, the rest `high`.
+| Tool        | Model                                                                    |
+| ----------- | ------------------------------------------------------------------------ |
+| Claude Code | All six run on `opus`. The manager uses `medium` effort, the rest `high` |
+| opencode    | All six run on the model of the session                                  |
 
-This costs tokens: a review runs the reviewer, security and the developer over up to three rounds, plus the tester when the checks are on. Each agent file sets its own model. To run the five agents the manager starts on another one, set both `CLAUDE_CODE_SUBAGENT_MODEL` and `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`. That needs Claude Code v2.1.257 or later.
+This costs tokens: a review runs the reviewer, security and the developer over up to three rounds, plus the tester when the checks are on. In Claude Code, each agent file sets its own model. To run the five agents the manager starts on another one, set both `CLAUDE_CODE_SUBAGENT_MODEL` and `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`. That needs Claude Code v2.1.257 or later.
 
-`office.json` gives the team its desks in the `tidy-office` plugin. It does nothing without that plugin.
+`office.json` gives the team its desks in the `tidy-office` plugin. It does nothing without that plugin, and the office does not read it in opencode.
 
 ### The skills
 
@@ -115,7 +136,9 @@ The agent files are thin. The work lives in ten skills.
 | `test`           | `tester`                            | Run the checks for any stack. When asked, start the app and try the change           |
 | `debug`          | `tester`                            | Reproduce the bug, narrow it down, find the cause                                    |
 
-`clean-code` and `secure-code` are standards, not jobs. They are hidden from the `/` menu.
+`clean-code` and `secure-code` are standards, not jobs. They have no `/` command.
+
+In opencode a skill's name starts with `tidy-dev-`, like `tidy-dev-plan`.
 
 ### The review debate
 

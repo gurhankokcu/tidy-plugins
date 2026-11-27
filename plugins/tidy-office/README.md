@@ -1,79 +1,105 @@
 # tidy-office
 
-A pixel office in the browser. Each agent sits at its desk while it works and leaves when it is done.
+A pixel office in the browser for Claude Code and opencode. Each agent sits at its desk while it works and leaves when it is done.
 
 It works for any team of agents, with no setup.
 
 ## Install
+
+It needs Node.js. Tested in Claude Code 2.1.332 and opencode 2.3.1.
+
+### Claude Code
 
 ```sh
 claude plugin marketplace add gurhankokcu/tidy-plugins     # once
 claude plugin install tidy-office@tidy-plugins
 ```
 
-It needs Node.js.
+### opencode
+
+```sh
+opencode plugin add 'github:gurhankokcu/tidy-plugins#main::path:plugins/tidy-office'
+```
+
+It needs opencode V2. The plugin follows the plugin API of opencode 2.3.1.
 
 ## Use
 
-In a Claude Code session, type:
+In a session, type:
 
-```
-/tidy-office:open
-```
+| Tool        | Command             |
+| ----------- | ------------------- |
+| Claude Code | `/tidy-office:open` |
+| opencode    | `/tidy-office/open` |
 
 It starts the server, or reuses it, and opens the page for this session.
 
-The office comes from the main agent's name. `claude --agent tidy-dev:manager` opens the `tidy-dev` office, with a desk for each agent of that plugin. Plain `claude` opens a default office with an "Agent" desk and a "Guests" desk.
+The office comes from the main agent's name:
+
+| Main agent         | Claude Code                       | opencode                     | Office                                                        |
+| ------------------ | --------------------------------- | ---------------------------- | ------------------------------------------------------------- |
+| An agent of a team | `claude --agent tidy-dev:manager` | The `tidy-dev/manager` agent | The `tidy-dev` office, with a desk for each agent of the team |
+| Any other agent    | Plain `claude`                    | The `build` agent            | A default office with an "Agent" desk and a "Guests" desk     |
 
 ## How it works
 
-| Part  | File                                   | Job                                                         |
-| ----- | -------------------------------------- | ----------------------------------------------------------- |
-| Skill | `skills/open/SKILL.md`                 | Starts the server, or reuses it, and opens the page         |
-| Hooks | `hooks/hooks.json`, `hooks/record.mjs` | Writes each session, prompt, tool and agent event to a file |
-| App   | `app/server.mjs`, `app/index.html`     | Serves the page and streams the events to it                |
-| Files | `app/files.mjs`                        | Reads the installed plugins and their agent files           |
+| Part             | File                                                           | Job                                                                                          |
+| ---------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Recorder         | `hooks/journal.mjs`                                            | Writes one line per event to the file of its session                                         |
+| Claude Code side | `skills/open/SKILL.md`, `hooks/hooks.json`, `hooks/record.mjs` | The `/tidy-office:open` skill, and seven hooks that feed the recorder                        |
+| opencode side    | `index.js`, `package.json`                                     | The `/tidy-office/open` command, and the session events and tool hook that feed the recorder |
+| App              | `app/server.mjs`, `app/index.html`                             | Serves the page and streams the events to it                                                 |
+| Files            | `app/files.mjs`                                                | Reads the installed Claude Code plugins and their agent files                                |
 
 ### What gets recorded
 
-The hooks write one line per event to a file on your machine. Nothing leaves it.
+One line per event goes to a file on your machine. Nothing leaves it.
 
-| Recorded                                 | Detail                                                                                                                   |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Events                                   | `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `SubagentStart`, `SubagentStop`, `Stop`, `SessionEnd`                  |
-| The session's folder                     | The full path, on session start                                                                                          |
-| Each agent                               | Its ID, type, model and effort                                                                                           |
-| Each tool call                           | The tool name and a summary of up to 80 characters: a file name, a search pattern, or a shell command or its description |
-| Each agent's last message                | The first 280 characters                                                                                                 |
-| The model and effort of every agent file | From `~/.claude/agents`, the project's `.claude/agents`, and installed plugins                                           |
+| Recorded                  | Detail                                                                                                                   |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Events                    | `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `SubagentStart`, `SubagentStop`, `Stop`, `SessionEnd`                  |
+| The session's folder      | The full path, on session start                                                                                          |
+| Each agent                | Its ID, type, model and effort                                                                                           |
+| Each tool call            | The tool name and a summary of up to 80 characters: a file name, a search pattern, or a shell command or its description |
+| Each agent's last message | The first 280 characters                                                                                                 |
 
 The text of your prompts is not recorded. A shell command can hold a secret; its first 80 characters land in the file.
 
-| Point    | Detail                                                            |
-| -------- | ----------------------------------------------------------------- |
-| Where    | `~/.claude/plugins/data/tidy-office-tidy-plugins/<session>.jsonl` |
-| How long | Files older than a day are deleted when a session starts          |
-| Speed    | The hooks run in the background, so they never slow Claude down   |
+| Point       | Claude Code                                                                                                              | opencode                                                                               |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| Source      | Seven hooks, one per event                                                                                               | Session events and a hook before each tool call, written under the same seven names    |
+| Subagents   | Their own start and stop hooks                                                                                           | Each runs in a child session. Its events go to the file of the session that started it |
+| Agent files | The model and effort of every agent file, from `~/.claude/agents`, the project's `.claude/agents`, and installed plugins | Not read. The model and its variant come with the events                               |
+| Where       | `~/.claude/plugins/data/tidy-office-tidy-plugins/<session>.jsonl`                                                        | `~/.local/share/tidy-office/<session>.jsonl`                                           |
+| Speed       | The hooks run in the background, so they never slow a session down                                                       | One small write per event, inside opencode                                             |
+
+Files older than a day are deleted when a session starts.
 
 ### The server
 
-| Point    | Detail                                                           |
-| -------- | ---------------------------------------------------------------- |
-| Address  | `127.0.0.1:7341` only. Set `TIDY_OFFICE_PORT` to change the port |
-| Requests | GET only, with a check of the `Host` header                      |
-| Stops    | 30 seconds after its last tab closes                             |
-| Code     | Node built-ins only                                              |
+| Point    | Detail                                                                                                                                           |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Address  | `127.0.0.1` only, on port 7341 for Claude Code and 7342 for opencode, so both offices can run at once. Set `TIDY_OFFICE_PORT` to change the port |
+| Requests | GET only, with a check of the `Host` header                                                                                                      |
+| Stops    | 30 seconds after its last tab closes                                                                                                             |
+| Code     | Node built-ins only                                                                                                                              |
 
 ### Desks
 
-| Rule               | Behavior                                                                                         |
-| ------------------ | ------------------------------------------------------------------------------------------------ |
-| Layout             | The main agent's desk on top, the rest below                                                     |
-| Desks              | One per agent file of the team's plugin: the name as the title, the agent's `color` as the shirt |
-| Guests             | Agents from outside the team sit at the guest desk, labelled with their type                     |
-| Same agent at once | The desk grows to 3 seats. More show as a `+N` badge                                             |
-| Name plate         | The seat name, and under it the model and effort                                                 |
-| Bubble             | What the agent is doing while it works. Its last message when it stops                           |
+| Rule               | Behavior                                                                           |
+| ------------------ | ---------------------------------------------------------------------------------- |
+| Layout             | The main agent's desk on top, the rest below                                       |
+| Desks              | One per agent of the team: the name as the title, the agent's `color` as the shirt |
+| Guests             | Agents from outside the team sit at the guest desk, labelled with their type       |
+| Same agent at once | The desk grows to 3 seats. More show as a `+N` badge                               |
+| Name plate         | The seat name, and under it the model and effort                                   |
+| Bubble             | What the agent is doing while it works. Its last message when it stops             |
+
+| Point         | Claude Code                                     | opencode                                                                |
+| ------------- | ----------------------------------------------- | ----------------------------------------------------------------------- |
+| A team        | An installed plugin with agent files            | The agents with an ID of the form `team/agent`                          |
+| Shirt         | The `color` name of the agent file, like `blue` | The agent's `color`, when it is a hex value like `#4f8fe8`              |
+| `office.json` | Read from the root of the team's plugin         | Not read, so the titles are the agent names and the desks have no items |
 
 A team plugin can add an `office.json` at its root to set titles and give each desk an item:
 
@@ -99,7 +125,7 @@ A desk with no `item` is empty, and so is one with a value the office does not k
 
 ### The limits bar
 
-The header can show your 5h and 7d usage limits. A plugin cannot read them; only a status line can. The bar stays hidden until a status line writes the data.
+In Claude Code, the header can show your 5h and 7d usage limits. A plugin cannot read them; only a status line can. The bar stays hidden until a status line writes the data. In opencode it stays hidden.
 
 Add this to your own status line script. It reads the same JSON from stdin as the rest of the script:
 
@@ -109,7 +135,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 const DIR = join(homedir(), ".claude", "plugins", "data", "tidy-office-tidy-plugins");
-const SESSION = /^[A-Za-z0-9-]+$/;
+const SESSION = /^[A-Za-z0-9_-]+$/;
 
 const { session_id, model, effort, rate_limits } = JSON.parse(readFileSync(0, "utf8"));
 
@@ -131,10 +157,12 @@ if (SESSION.test(session_id ?? "")) {
 
 ## Limits
 
-| Limit                     | Detail                                                                                                                                   |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| A view, not a control     | The page only shows. It cannot stop or steer an agent                                                                                    |
-| Agents it cannot find     | A plugin loaded with `--plugin-dir`, agents in a subfolder, and agents listed in a manifest's `agents` field. They sit at the guest desk |
-| An agent stopped with Esc | It never reports that it stopped. It leaves when the next prompt is sent                                                                 |
-| Limits                    | They only change while a Claude session runs its status line                                                                             |
-| The data folder path      | Another plugins root (`CLAUDE_CODE_PLUGIN_CACHE_DIR`) moves it, and the status line snippet must follow                                  |
+| Limit                     | Tool        | Detail                                                                                                                                   |
+| ------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| A view, not a control     | Both        | The page only shows. It cannot stop or steer an agent                                                                                    |
+| Agents it cannot find     | Claude Code | A plugin loaded with `--plugin-dir`, agents in a subfolder, and agents listed in a manifest's `agents` field. They sit at the guest desk |
+| Agents it cannot find     | opencode    | An agent whose ID is not of the form `team/agent`. It sits at the guest desk                                                             |
+| An agent stopped with Esc | Claude Code | It never reports that it stopped. It leaves when the next prompt is sent                                                                 |
+| A run with `claude -p`    | Claude Code | It exits before the hook of its last `Stop` is done, so that `Stop` is not recorded                                                      |
+| The limits bar            | Claude Code | It only changes while a session runs its status line                                                                                     |
+| The data folder path      | Claude Code | Another plugins root (`CLAUDE_CODE_PLUGIN_CACHE_DIR`) moves it, and the status line snippet must follow                                  |

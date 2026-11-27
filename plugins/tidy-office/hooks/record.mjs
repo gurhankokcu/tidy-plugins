@@ -1,23 +1,11 @@
-import { appendFileSync, mkdirSync, readFileSync, statSync, unlinkSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { cut, entries, FILE, frontmatter, plugins, SETTING_MAX } from "../app/files.mjs";
+import { record } from "./journal.mjs";
 
 const DIR = process.env.CLAUDE_PLUGIN_DATA;
-const SESSION = /^[A-Za-z0-9-]+$/;
 const DEFINED = new Set(["SessionStart", "SubagentStart"]);
-const MAX_AGE_MS = 24 * 60 * 60 * 1000;
-const ACTIVITY_MAX = 80;
-const MESSAGE_MAX = 280;
-
-function prune() {
-  for (const name of entries(DIR)) {
-    const file = join(DIR, name);
-    try {
-      if (Date.now() - statSync(file).mtimeMs > MAX_AGE_MS) unlinkSync(file);
-    } catch {}
-  }
-}
 
 function describe(tool, input = {}) {
   switch (tool) {
@@ -78,13 +66,10 @@ const started = hook_event_name === "SessionStart";
 const hidden = Boolean(agent_id) && !agent_type;
 const folder = typeof cwd === "string" ? cwd : undefined;
 
-if (DIR && SESSION.test(session_id ?? "") && !hidden) {
-  mkdirSync(DIR, { recursive: true, mode: 0o700 });
-  if (started) prune();
+if (DIR && !hidden) {
   const agents = DEFINED.has(hook_event_name) ? definitions(folder) : new Map();
   const defined = agents.get(agent_type) ?? {};
-  const event = {
-    time: Date.now(),
+  record(DIR, session_id, {
     event: hook_event_name,
     cwd: started ? folder : undefined,
     agentId: agent_id,
@@ -93,8 +78,7 @@ if (DIR && SESSION.test(session_id ?? "") && !hidden) {
     effort: defined.effort,
     agents: started ? Object.fromEntries(agents) : undefined,
     tool: tool_name,
-    activity: hook_event_name === "PreToolUse" ? cut(describe(tool_name, tool_input), ACTIVITY_MAX) : undefined,
-    message: cut(last_assistant_message, MESSAGE_MAX),
-  };
-  appendFileSync(join(DIR, `${session_id}.jsonl`), `${JSON.stringify(event)}\n`, { mode: 0o600 });
+    activity: hook_event_name === "PreToolUse" ? describe(tool_name, tool_input) : undefined,
+    message: last_assistant_message,
+  });
 }

@@ -1,0 +1,6 @@
+{
+  "name": "tidy-git-guard",
+  "version": "1.0.0",
+  "description": "A hook that blocks every git command that changes state",
+  "type": "module"
+}

@@ -1,6 +1,6 @@
 # tidy-plugins
 
-Plugins for Claude Code. Each one installs on its own.
+Plugins for Claude Code and opencode. Each one installs on its own.
 
 The idea behind all of them: the human stays in charge. Small steps, gates, blind review, read-only git.
 
@@ -13,6 +13,8 @@ The idea behind all of them: the human stays in charge. Small steps, gates, blin
 | [`tidy-git-guard`](plugins/tidy-git-guard) | A hook that blocks every git command that changes state                                     |
 
 ## Install
+
+### Claude Code
 
 ```sh
 claude plugin marketplace add gurhankokcu/tidy-plugins     # once
@@ -27,13 +29,26 @@ claude plugin install tidy-git-guard@tidy-plugins
 | Remove             | `claude plugin uninstall tidy-dev@tidy-plugins` |
 | In `settings.json` | `"tidy-dev@tidy-plugins": true`                 |
 
+### opencode
+
+```sh
+opencode plugin add 'github:gurhankokcu/tidy-plugins#main::path:plugins/tidy-dev'
+opencode plugin add 'github:gurhankokcu/tidy-plugins#main::path:plugins/tidy-office'
+opencode plugin add 'github:gurhankokcu/tidy-plugins#main::path:plugins/tidy-git-guard'
+```
+
+| Action | Command                                                                                |
+| ------ | -------------------------------------------------------------------------------------- |
+| Update | `opencode plugin update`                                                               |
+| Remove | `opencode plugin remove 'github:gurhankokcu/tidy-plugins#main::path:plugins/tidy-dev'` |
+
 ## Use
 
-| Action                       | Command                               |
-| ---------------------------- | ------------------------------------- |
-| Talk to the team             | `claude --agent tidy-dev:manager`     |
-| Use one active skill by hand | `/tidy-dev:plan`, `/tidy-dev:test`, … |
-| Open the office              | `/tidy-office:open`                   |
+| Action                       | Claude Code                           | opencode                              |
+| ---------------------------- | ------------------------------------- | ------------------------------------- |
+| Talk to the team             | `claude --agent tidy-dev:manager`     | Pick the `tidy-dev/manager` agent     |
+| Use one active skill by hand | `/tidy-dev:plan`, `/tidy-dev:test`, … | `/tidy-dev/plan`, `/tidy-dev/test`, … |
+| Open the office              | `/tidy-office:open`                   | `/tidy-office/open`                   |
 
 `tidy-git-guard` has nothing to type. It works from the moment it is installed.
 

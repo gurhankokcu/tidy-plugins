@@ -1,10 +1,14 @@
 # tidy-git-guard
 
-A hook for Claude Code that blocks every git command that changes state. Claude may read git. Staging, committing and the rest stay yours.
+A hook for Claude Code and opencode that blocks every git command that changes state. The agent may read git. Staging, committing and the rest stay yours.
 
 It covers the main session and every agent.
 
 ## Install
+
+Tested in Claude Code 2.1.332 and opencode 2.3.1.
+
+### Claude Code
 
 ```sh
 claude plugin marketplace add gurhankokcu/tidy-plugins     # once
@@ -13,11 +17,19 @@ claude plugin install tidy-git-guard@tidy-plugins
 
 It needs Node.js. Without it the hook cannot run, and nothing is blocked.
 
+### opencode
+
+```sh
+opencode plugin add 'github:gurhankokcu/tidy-plugins#main::path:plugins/tidy-git-guard'
+```
+
+It needs opencode V2, and no Node.js: the hook runs inside opencode. The plugin follows the plugin API of opencode 2.3.1.
+
 ## Use
 
-Nothing to type. The hook runs before every Bash and PowerShell command from the moment the plugin is installed.
+Nothing to type. The hook runs before every shell command of an agent from the moment the plugin is installed: Bash and PowerShell in Claude Code, `shell` in opencode.
 
-A blocked command never runs. Claude gets this message and asks you to run it:
+A blocked command never runs. The agent gets this message and asks you to run it:
 
 ```
 Git is read-only: "git add ." is blocked. Ask the user to run it.
@@ -25,11 +37,12 @@ Git is read-only: "git add ." is blocked. Ask the user to run it.
 
 ## How it works
 
-| Part        | File                   | Job                                                                 |
-| ----------- | ---------------------- | ------------------------------------------------------------------- |
-| Hook config | `hooks/hooks.json`     | One `PreToolUse` entry, matcher `Bash\|PowerShell`                  |
-| Check       | `hooks/check.mjs`      | Decides if a command may run                                        |
-| Tests       | `hooks/check.test.mjs` | The commands the check must allow and block. Run with `node --test` |
+| Part             | File                                    | Job                                                                                                                                                 |
+| ---------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Guard            | `hooks/guard.mjs`                       | Decides if a command may run                                                                                                                        |
+| Claude Code hook | `hooks/hooks.json`, `hooks/check.mjs`   | One `PreToolUse` entry, matcher `Bash\|PowerShell`. Exits with 2 on a blocked command                                                               |
+| opencode plugin  | `index.js`, `package.json`              | One hook before every tool call. Throws on a blocked `shell` command                                                                                |
+| Tests            | `hooks/check.test.mjs`, `index.test.js` | The commands the guard must allow and block, through the Claude Code hook. The opencode hook, with one command of each kind. Run with `node --test` |
 
 ### What it lets through
 
@@ -80,4 +93,9 @@ It is a guard rail, not a sandbox. It guards against an agent that runs git by h
 | A comment that holds a heredoc mark, like `# see <<EOF`           |
 | PowerShell forms that bash does not have, like `iex "git add ."`  |
 
-It ships no permission rules. A plugin can carry a hook, not a deny list. For a second layer, add your own `deny` rules to `settings.json`, like `Bash(git commit:*)`.
+It ships no permission rules. For a second layer, add your own `deny` rules:
+
+| Tool        | Where           | Rule                                                                  |
+| ----------- | --------------- | --------------------------------------------------------------------- |
+| Claude Code | `settings.json` | `Bash(git commit:*)`                                                  |
+| opencode    | `opencode.json` | `{ "action": "shell", "resource": "git commit *", "effect": "deny" }` |

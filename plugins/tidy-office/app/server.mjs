@@ -7,13 +7,14 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { cut, entries, FILE, frontmatter, load, plugins, SETTING_MAX, WORD } from "./files.mjs";
 
-const NAME = "tidy-office";
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.TIDY_OFFICE_PORT ?? 7341);
 const ORIGIN = `http://${HOST}:${PORT}`;
 const HOSTS = new Set([`${HOST}:${PORT}`, `localhost:${PORT}`]);
 const [DIR, TARGET] = process.argv.slice(2);
-const SESSION = /^[A-Za-z0-9-]+$/;
+// A server on the port is this office only when it serves the same data folder.
+const HEALTH = `tidy-office ${DIR}`;
+const SESSION = /^[A-Za-z0-9_-]+$/;
 const KEY = new RegExp(`^${WORD}$`);
 const SHIRT = /^#[0-9a-fA-F]{6}$/;
 const SHIRTS = new Map([
@@ -41,7 +42,7 @@ function fail(message) {
 async function healthy() {
   try {
     const response = await fetch(`${ORIGIN}/health`, { signal: AbortSignal.timeout(500) });
-    return (await response.text()) === NAME;
+    return (await response.text()) === HEALTH;
   } catch {
     return false;
   }
@@ -106,16 +107,29 @@ function desk(defaults, custom) {
   };
 }
 
-function office(name, root) {
+// The agents of a Claude Code plugin, each name with its settings.
+function pluginAgents(root) {
   const dir = join(root, "agents");
-  const custom = load(join(root, "office.json"));
-  const agents = new Map();
+  const found = new Map();
   for (const file of entries(dir).sort()) {
     const agent = file.match(FILE)?.[1];
     const each = agent && settings(join(dir, file));
-    if (!each) continue;
-    const defaults = { title: capitalize(agent), shirt: SHIRTS.get(each.color) ?? AGENT.shirt };
-    agents.set(agent, desk(defaults, custom?.agents?.[agent]));
+    if (each) found.set(agent, each);
+  }
+  return found;
+}
+
+// The agents of an opencode team, each name with its settings, as the opencode plugin lists them in `teams.json`.
+function listedAgents(team) {
+  const found = Object.entries(team ?? {}).filter(([agent]) => KEY.test(agent));
+  return new Map(found.sort(([a], [b]) => a.localeCompare(b)));
+}
+
+function office(name, team, custom) {
+  const agents = new Map();
+  for (const [agent, each] of team) {
+    const shirt = SHIRTS.get(each?.color) ?? matching(SHIRT, each?.color, AGENT.shirt);
+    agents.set(agent, desk({ title: capitalize(agent), shirt }, custom?.agents?.[agent]));
   }
   if (agents.size === 0) return null;
   const listed = Object.keys(custom?.agents ?? {}).filter((agent) => agents.has(agent));
@@ -127,10 +141,20 @@ function office(name, root) {
   };
 }
 
+// The teams, each name with its agents and its office file.
+// A Claude Code team is an installed plugin. An opencode team is a group of agents in `teams.json`.
+function teams() {
+  const listed = Object.entries(load(join(DIR, "teams.json")) ?? {}).filter(([name]) => KEY.test(name));
+  return [
+    ...Array.from(plugins(DIR), ([name, root]) => [name, pluginAgents(root), load(join(root, "office.json"))]),
+    ...listed.map(([name, team]) => [name, listedAgents(team), null]),
+  ];
+}
+
 function offices() {
   const found = new Map();
-  for (const [name, root] of plugins(DIR)) {
-    const each = office(name, root);
+  for (const [name, team, custom] of teams()) {
+    const each = office(name, team, custom);
     if (each) found.set(name, each);
   }
   return Object.fromEntries(found);
@@ -242,7 +266,7 @@ function serve() {
       armIdle();
       return send(response, 200, "application/json; charset=utf-8", JSON.stringify(sessions()));
     }
-    if (url.pathname === "/health") return send(response, 200, "text/plain", NAME);
+    if (url.pathname === "/health") return send(response, 200, "text/plain", HEALTH);
     if (url.pathname === "/status.json") {
       const session = url.searchParams.get("session") ?? "";
       if (!SESSION.test(session)) return send(response, 400, "text/plain", "Bad session");
