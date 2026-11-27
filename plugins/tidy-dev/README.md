@@ -110,12 +110,12 @@ The full debate is the manager's job. By hand it is one round at a time.
 | `security`  | Reviews the same change for security only. Blind too                                 | No         |
 | `tester`    | Runs the checks, tries the app when asked, finds the cause of bugs                   | No         |
 
-| Tool        | Model                                                                    |
-| ----------- | ------------------------------------------------------------------------ |
-| Claude Code | All six run on `opus`. The manager uses `medium` effort, the rest `high` |
-| opencode    | All six run on the model of the session                                  |
+| Tool        | Model                                              |
+| ----------- | -------------------------------------------------- |
+| Claude Code | All six run on the model and effort of the session |
+| opencode    | All six run on the model of the session            |
 
-This costs tokens: a review runs the reviewer, security and the developer over up to three rounds, plus the tester when the checks are on. In Claude Code, each agent file sets its own model. To run the five agents the manager starts on another one, set both `CLAUDE_CODE_SUBAGENT_MODEL` and `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`. That needs Claude Code v2.1.257 or later.
+This costs tokens: a review runs the reviewer, security and the developer over up to three rounds, plus the tester when the checks are on. In Claude Code, to run the five agents the manager starts on another model than the session's, set both `CLAUDE_CODE_SUBAGENT_MODEL` and `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`. That needs Claude Code v2.1.257 or later.
 
 `office.json` gives the team its desks in the `tidy-office` plugin. It does nothing without that plugin, and the office does not read it in opencode.
 

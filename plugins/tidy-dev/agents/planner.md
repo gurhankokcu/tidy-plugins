@@ -1,8 +1,6 @@
 ---
 name: planner
 description: Reads the code, judges the approach and splits a feature into small numbered steps. Never changes code.
-model: opus
-effort: high
 tools: Read, Grep, Glob, Bash, Skill
 color: blue
 skills:

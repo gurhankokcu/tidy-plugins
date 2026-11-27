@@ -1,8 +1,6 @@
 ---
 name: security
 description: Reviews a code change for security only, and answers push backs. Never changes code.
-model: opus
-effort: high
 tools: Read, Grep, Glob, Bash, Skill
 color: red
 skills:

@@ -1,8 +1,6 @@
 ---
 name: manager
 description: Talks to the user and runs the planner, developer, reviewer, security and tester agents. Never changes code. Start it with `claude --agent tidy-dev:manager`.
-model: opus
-effort: medium
 disallowedTools: Edit, Write, NotebookEdit
 color: purple
 ---

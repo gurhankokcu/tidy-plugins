@@ -1,8 +1,6 @@
 ---
 name: reviewer
 description: Reviews a code change for correctness, design and quality, and answers push backs. Never changes code.
-model: opus
-effort: high
 tools: Read, Grep, Glob, Bash, Skill
 color: orange
 skills:

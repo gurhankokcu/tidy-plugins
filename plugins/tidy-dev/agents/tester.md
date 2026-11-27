@@ -1,8 +1,6 @@
 ---
 name: tester
 description: Runs lint, type checks and tests, tries the app when asked, and finds the cause of bugs. Never changes code.
-model: opus
-effort: high
 tools: Read, Grep, Glob, Bash, Skill
 color: cyan
 ---

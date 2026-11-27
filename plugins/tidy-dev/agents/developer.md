@@ -1,8 +1,6 @@
 ---
 name: developer
 description: Builds plan steps with their tests, answers reviews of its work, and fixes picked points.
-model: opus
-effort: high
 color: green
 skills:
   - tidy-dev:clean-code
