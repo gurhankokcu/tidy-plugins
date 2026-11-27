@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { StringDecoder } from "node:string_decoder";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
-import { cut, entries, FILE, frontmatter, load, plugins, SETTING_MAX, WORD } from "./files.mjs";
+import { agentFiles, cut, entries, load, plugins, SETTING_MAX, WORD } from "./files.mjs";
 
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.TIDY_OFFICE_PORT ?? 7341);
@@ -93,11 +93,6 @@ function capitalize(text) {
   return text[0].toUpperCase() + text.slice(1);
 }
 
-function settings(file) {
-  const field = frontmatter(file);
-  return field && { color: field("color") };
-}
-
 function desk(defaults, custom) {
   return {
     title: cut(custom?.title, SETTING_MAX) || defaults.title,
@@ -105,18 +100,6 @@ function desk(defaults, custom) {
     screen: matching(KEY, custom?.screen, undefined),
     shirt: matching(SHIRT, custom?.shirt, defaults.shirt),
   };
-}
-
-// The agents of a Claude Code plugin, each name with its settings.
-function pluginAgents(root) {
-  const dir = join(root, "agents");
-  const found = new Map();
-  for (const file of entries(dir).sort()) {
-    const agent = file.match(FILE)?.[1];
-    const each = agent && settings(join(dir, file));
-    if (each) found.set(agent, each);
-  }
-  return found;
 }
 
 // The agents of an opencode team, each name with its settings, as the opencode plugin lists them in `teams.json`.
@@ -146,7 +129,11 @@ function office(name, team, custom) {
 function teams() {
   const listed = Object.entries(load(join(DIR, "teams.json")) ?? {}).filter(([name]) => KEY.test(name));
   return [
-    ...Array.from(plugins(DIR), ([name, root]) => [name, pluginAgents(root), load(join(root, "office.json"))]),
+    ...Array.from(plugins(DIR), ([name, root]) => [
+      name,
+      agentFiles(join(root, "agents"), ["color"]),
+      load(join(root, "office.json")),
+    ]),
     ...listed.map(([name, team]) => [name, listedAgents(team), null]),
   ];
 }

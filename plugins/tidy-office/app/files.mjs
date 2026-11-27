@@ -2,8 +2,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const WORD = "[A-Za-z0-9_-][A-Za-z0-9._-]*";
-export const FILE = new RegExp(`^(${WORD})\\.md$`);
 export const SETTING_MAX = 40;
+const FILE = new RegExp(`^(${WORD})\\.md$`);
 const PLUGIN = new RegExp(`^(${WORD})@`);
 
 export function entries(dir) {
@@ -41,7 +41,7 @@ export function plugins(dataDir) {
 }
 
 // Returns a reader of the frontmatter fields of an agent file, or null when the file cannot be read.
-export function frontmatter(file) {
+function frontmatter(file) {
   let text;
   try {
     text = readFileSync(file, "utf8");
@@ -49,5 +49,16 @@ export function frontmatter(file) {
     return null;
   }
   const front = text.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "";
-  return (key) => cut(front.match(new RegExp(`^${key}:\\s*(.+)$`, "m"))?.[1].replace(/^["']|["']$/g, ""), SETTING_MAX);
+  return (key) => cut(front.match(new RegExp(`^${key}:[ \\t]*(\\S.*)$`, "m"))?.[1].replace(/^["']|["']$/g, ""), SETTING_MAX);
+}
+
+// The agent files of a folder, each name with the given frontmatter fields.
+export function agentFiles(dir, keys) {
+  const found = new Map();
+  for (const file of entries(dir).sort()) {
+    const name = file.match(FILE)?.[1];
+    const field = name && frontmatter(join(dir, file));
+    if (field) found.set(name, Object.fromEntries(keys.map((key) => [key, field(key)])));
+  }
+  return found;
 }

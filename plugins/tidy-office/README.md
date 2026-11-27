@@ -50,6 +50,7 @@ The office comes from the main agent's name:
 | opencode side    | `index.js`, `package.json`                                     | The `/tidy-office/open` command, and the session events and tool hook that feed the recorder |
 | App              | `app/server.mjs`, `app/index.html`                             | Serves the page and streams the events to it                                                 |
 | Files            | `app/files.mjs`                                                | Reads the installed Claude Code plugins and their agent files                                |
+| Status line      | `statusline.mjs`                                               | The status line. Copied to the data folder when a session starts                             |
 
 ### What gets recorded
 
@@ -127,33 +128,29 @@ A desk with no `item` is empty, and so is one with a value the office does not k
 
 In Claude Code, the header can show your 5h and 7d usage limits. A plugin cannot read them; only a status line can. The bar stays hidden until a status line writes the data. In opencode it stays hidden.
 
-Add this to your own status line script. It reads the same JSON from stdin as the rest of the script:
+The plugin ships a status line, `statusline.mjs`. A plugin cannot turn a status line on, so add it to `~/.claude/settings.json` yourself:
 
-```js
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
-
-const DIR = join(homedir(), ".claude", "plugins", "data", "tidy-office-tidy-plugins");
-const SESSION = /^[A-Za-z0-9_-]+$/;
-
-const { session_id, model, effort, rate_limits } = JSON.parse(readFileSync(0, "utf8"));
-
-function limitWindow(window) {
-  return window && { used_percentage: window.used_percentage, resets_at: window.resets_at };
-}
-
-mkdirSync(DIR, { recursive: true, mode: 0o700 });
-if (rate_limits) {
-  const limits = { five_hour: limitWindow(rate_limits.five_hour), seven_day: limitWindow(rate_limits.seven_day) };
-  writeFileSync(join(DIR, "limits.json"), JSON.stringify(limits));
-}
-if (SESSION.test(session_id ?? "")) {
-  writeFileSync(join(DIR, `${session_id}.status.json`), JSON.stringify({ model: model?.id, effort: effort?.level }));
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "node ~/.claude/plugins/data/tidy-office-tidy-plugins/statusline.mjs"
+  }
 }
 ```
 
-`<session>.status.json` gives the page the session's model and effort for the name plates.
+The script is copied to the data folder each time a session starts, so the path stays the same across plugin updates. Start one session with the plugin before you add the line.
+
+Remove the line when you uninstall or disable the plugin. An uninstall deletes the script, so the status line goes blank. A disabled plugin leaves the last copy running.
+
+| Shown   | Detail                                                       |
+| ------- | ------------------------------------------------------------ |
+| Project | The project folder and the git branch                        |
+| Model   | The model, the effort, and whether thinking and fast are on  |
+| Session | The context size, the model time, the session time, the cost |
+| Limits  | The 5h and 7d limits, each with the time left                |
+
+It also writes `limits.json` for the bar, and `<session>.status.json`, which gives the page the session's model and effort for the name plates.
 
 ## Limits
 
@@ -165,4 +162,4 @@ if (SESSION.test(session_id ?? "")) {
 | An agent stopped with Esc | Claude Code | It never reports that it stopped. It leaves when the next prompt is sent                                                                 |
 | A run with `claude -p`    | Claude Code | It exits before the hook of its last `Stop` is done, so that `Stop` is not recorded                                                      |
 | The limits bar            | Claude Code | It only changes while a session runs its status line                                                                                     |
-| The data folder path      | Claude Code | Another plugins root (`CLAUDE_CODE_PLUGIN_CACHE_DIR`) moves it, and the status line snippet must follow                                  |
+| The data folder path      | Claude Code | Another plugins root (`CLAUDE_CODE_PLUGIN_CACHE_DIR`) moves it, and the status line command must follow                                  |

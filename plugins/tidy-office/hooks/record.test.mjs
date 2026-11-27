@@ -7,6 +7,7 @@ import { after, describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const RECORD = fileURLToPath(new URL("record.mjs", import.meta.url));
+const STATUSLINE = fileURLToPath(new URL("../statusline.mjs", import.meta.url));
 const ROOT = mkdtempSync(join(tmpdir(), "tidy-office-"));
 const HOME = join(ROOT, "home");
 const PROJECT = join(ROOT, "project");
@@ -135,5 +136,10 @@ describe("Claude Code hook", () => {
     record("prune", "SessionStart");
     assert.equal(existsSync(file("old")), false);
     assert.equal(existsSync(file("fresh")), true);
+  });
+
+  test("puts the status line script in the data folder when a session starts", () => {
+    record("publish", "SessionStart");
+    assert.equal(readFileSync(join(DIR, "statusline.mjs"), "utf8"), readFileSync(STATUSLINE, "utf8"));
   });
 });
