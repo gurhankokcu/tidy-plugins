@@ -1,0 +1,1543 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agent office</title>
+    <style>
+      :root {
+        --wall: #333c57;
+        --floor: #262b44;
+        --tile: #2b3150;
+        --text: #f4f4f4;
+        --muted: #94b0c2;
+        --wood-text: #fbe9cf;
+        --frame: #5a6988;
+        --five-hour: #8fc48a;
+        --seven-day: #4a8ff0;
+        --paper: #f4f4f4;
+        --ink: #1a1c2c;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: var(--floor);
+        color: var(--text);
+        font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+
+      header {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 8px 24px;
+        padding: 16px 24px;
+        background: var(--wall);
+        border-bottom: 4px solid var(--ink);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 18px;
+        letter-spacing: 1px;
+        text-align: center;
+      }
+
+      #session {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 24px;
+        color: var(--muted);
+      }
+
+      #limits {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        justify-self: end;
+      }
+
+      .limit {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+      }
+
+      .bar {
+        position: relative;
+        width: 160px;
+        height: 16px;
+        border: 2px solid var(--frame);
+        background: var(--ink);
+      }
+
+      .fill {
+        height: 100%;
+      }
+
+      .fill.five-hour {
+        background: var(--five-hour);
+      }
+
+      .fill.seven-day {
+        background: var(--seven-day);
+      }
+
+      .bar-label {
+        position: absolute;
+        inset: 0;
+        padding-left: 4px;
+        font-weight: bold;
+        line-height: 12px;
+        text-shadow: 1px 1px 0 var(--ink);
+      }
+
+      .reset {
+        color: var(--muted);
+      }
+
+      main {
+        flex: 1;
+        overflow-x: auto;
+        padding: 24px 16px;
+        background-color: var(--floor);
+        background-image: conic-gradient(var(--tile) 25%, transparent 0 50%, var(--tile) 0 75%, transparent 0);
+        background-size: 64px 64px;
+      }
+
+      #office {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .row {
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        gap: 32px;
+      }
+
+      .desk {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .cells {
+        display: flex;
+        padding-left: 64px;
+      }
+
+      .cells > * {
+        flex: none;
+        width: 128px;
+        min-width: 0;
+      }
+
+      .bubbles {
+        align-items: flex-end;
+        height: 76px;
+      }
+
+      .bubble {
+        position: relative;
+        width: 120px;
+        margin: 0 4px 8px;
+        padding: 4px 6px;
+        border-radius: 6px;
+        background: var(--paper);
+        color: var(--ink);
+        font-size: 11px;
+        line-height: 1.3;
+      }
+
+      .bubble::after {
+        content: "";
+        position: absolute;
+        left: 38px;
+        bottom: -6px;
+        border: 6px solid transparent;
+        border-bottom: 0;
+        border-top-color: var(--paper);
+      }
+
+      .bubble p {
+        display: -webkit-box;
+        margin: 0;
+        overflow: hidden;
+        overflow-wrap: anywhere;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 4;
+      }
+
+      .bubble.empty {
+        visibility: hidden;
+      }
+
+      .bubble.old {
+        opacity: 0.55;
+      }
+
+      .frame {
+        position: relative;
+      }
+
+      .frame canvas,
+      .decor canvas {
+        display: block;
+        image-rendering: pixelated;
+      }
+
+      .badge {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        padding: 0 6px;
+        border-radius: 8px;
+        background: var(--ink);
+        font-size: 11px;
+      }
+
+      .plates {
+        position: absolute;
+        top: 72px;
+        left: 0;
+        pointer-events: none;
+      }
+
+      .plate {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 40px;
+        padding: 0 8px;
+        color: var(--wood-text);
+        font-size: 11px;
+        line-height: 14px;
+        text-shadow: 1px 1px 0 var(--ink);
+      }
+
+      .plate[data-state="empty"] {
+        opacity: 0.6;
+      }
+
+      .name,
+      .spec {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .name {
+        font-weight: bold;
+      }
+
+      #sessions {
+        display: grid;
+        grid-template-columns: max-content minmax(0, max-content) max-content max-content max-content;
+        gap: 8px 16px;
+        width: fit-content;
+        max-width: 100%;
+        margin: 0 auto;
+      }
+
+      #sessions > p {
+        grid-column: 1 / -1;
+      }
+
+      .entry {
+        display: grid;
+        grid-column: 1 / -1;
+        grid-template-columns: subgrid;
+        align-items: baseline;
+        padding: 8px 16px;
+        border: 2px solid var(--frame);
+        background: var(--wall);
+        color: var(--muted);
+        text-decoration: none;
+      }
+
+      .entry:hover {
+        border-color: var(--text);
+      }
+
+      .entry[data-state="ended"] {
+        opacity: 0.6;
+      }
+
+      .project {
+        overflow: hidden;
+        color: var(--wood-text);
+        font-weight: bold;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .state,
+      .time {
+        font-size: 12px;
+      }
+
+      .time {
+        text-align: right;
+      }
+
+      .entry[data-state="live"] .dot,
+      .entry[data-state="live"] .state {
+        color: var(--five-hour);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div id="session">
+        <span id="folder"></span>
+        <span id="summary"></span>
+        <span id="connection"></span>
+      </div>
+      <h1 id="heading">Agent office</h1>
+      <div id="limits"></div>
+    </header>
+    <main>
+      <div id="office"></div>
+      <div id="sessions"></div>
+    </main>
+    <script>
+      const SESSION = /^[A-Za-z0-9-]+$/;
+      const FAMILY = /opus|sonnet|haiku|fable/i;
+      const FRAME_MS = 250;
+      const SCALE = 4;
+      const FINE = 2;
+      const LEFT = 16;
+      const SEAT = 32;
+      const DESK_HEIGHT = 32;
+      const DECOR_HEIGHT = 28;
+      const MAX_SEATS = 3;
+      const PER_ROW = 3;
+      const PLANT_WIDTH = 10;
+      const COUCH_WIDTH = 30;
+      const KITCHEN_WIDTH = 30;
+      const POLL_MS = 30_000;
+      const LIST_MS = 10_000;
+      const TICK_MS = 1000;
+      const MAIN = { title: "Agent", item: "phone", shirt: "#e8e2d6" };
+      const DEFAULT_OFFICE = { title: "", guests: { title: "Guests", shirt: "#8a8f98" }, agents: {} };
+      const SKINS = ["#f1c7a5", "#d9a07a", "#a8714f", "#6e4630"];
+      const HAIR_COLORS = ["#1d1d1d", "#3b2a1f", "#7a4a2a", "#d9a35b", "#a33b2f", "#c0cbdc"];
+      const SCREENS = { working: "#1d2b53", idle: "#141a2e", empty: "#0c0e14" };
+      const SHADOW = "rgba(0, 0, 0, 0.25)";
+      const STEAM = "rgba(244, 244, 244, 0.55)";
+      const GLARE = "rgba(255, 255, 255, 0.12)";
+      const WOOD = {
+        outline: "#3f2617",
+        top: "#e0aa70",
+        edge: "#c48a52",
+        front: "#8a5a33",
+        grain: "#7d5030",
+        leg: "#6b4426",
+        drawer: ["#3f2617", "#9c6a3e", "#b07a48", "#7d5030"],
+        handle: "#d9a35b",
+      };
+      const DARK_WOOD = {
+        outline: "#2a140b",
+        top: "#c0704a",
+        edge: "#a05b3a",
+        front: "#6e3a22",
+        grain: "#5c301c",
+        leg: "#552c19",
+        drawer: ["#2a140b", "#7d4429", "#94553a", "#5c301c"],
+        handle: "#feae34",
+      };
+      const CHAIR = ["#1a1c2c", "#3b3f58", "#5a6988"];
+      const POT = ["#5a2e1f", "#c06a43", "#e08a5c", "#8f4a2e"];
+      const LEAVES = { l: "#9be564", G: "#5cb84a", d: "#2f7a3f", s: "#3e5b2a" };
+      const COUCH = ["#232a5c", "#4a5bb8", "#6b7fe0", "#38479a"];
+      const COUCH_BASE = ["#232a5c", "#38479a"];
+      const PILLOW = ["#8f4a1f", "#feae34", "#ffd27a", "#d9822b"];
+      const MACHINE = ["#141824", "#3a4466", "#5a6988", "#262b44"];
+      const MUG = ["#8b9bb4", "#f4f4f4"];
+      const COOLER = ["#5a6988", "#f4f4f4", "#ffffff", "#c0cbdc"];
+      const COOLER_PANEL = ["#8b9bb4", "#e8ecf2"];
+      const COOLER_DOOR = ["#c0cbdc", "#e8ecf2", "#f4f4f4"];
+      const BOTTLE = ["#2e6fa8", "#73eff7", "#c0f5fb"];
+      const ITEM_COLORS = {
+        k: "#1a1c2c",
+        K: "#141824",
+        n: "#3a4466",
+        N: "#5a6988",
+        g: "#8b9bb4",
+        G: "#c0cbdc",
+        w: "#f4f4f4",
+        W: "#ffffff",
+        r: "#e43b44",
+        R: "#a32b33",
+        f: "#f6757a",
+        F: "#c94f5a",
+        o: "#feae34",
+        O: "#d9822b",
+        Y: "#f2b53a",
+        V: "#ffd97a",
+        T: "#c98a2b",
+        z: "#7a4a1f",
+        b: "#3b5dc9",
+        B: "#1d2b53",
+        i: "#5b7ee9",
+        c: "#73eff7",
+        C: "#41a6f6",
+        l: "#9be564",
+        m: "#5cb84a",
+        d: "#2f7a3f",
+        s: "#3e5b2a",
+        e: "#a7f070",
+        E: "#63c74d",
+        q: "#5a2e1f",
+        p: "#c06a43",
+        P: "#e08a5c",
+        t: "#8f4a2e",
+        u: "#6e3a22",
+        U: "#3f2617",
+        a: "#c28569",
+        A: "#d9a07a",
+      };
+      const ITEMS = {
+        phone: {
+          rows: [
+            "...l.l..........",
+            "..lmlmd.........",
+            ".lmmdmd.........",
+            "..mdmd..........",
+            "...sd...........",
+            "...s............",
+            ".qqqqq..........",
+            ".qPPPq.KKKKKKKK.",
+            ".qpppq.KK....KK.",
+            ".qpppq.KnnnnnnK.",
+            ".qtttq.KnNrNNnK.",
+            ".qqqqq.KKKKKKKK.",
+          ],
+        },
+        pinboard: {
+          rows: [
+            ".UUUUUUUUUUUUUU.",
+            ".UAAAAAAAAAAAAU.",
+            ".UaoroafrfacrcU.",
+            ".UaoooafffacccU.",
+            ".UaOOOaFFFaCCCU.",
+            ".UaaaaaaaaaaaaU.",
+            ".UaaereaaoroaaU.",
+            ".UaaeeeaaoooaaU.",
+            ".UaaEEEaaOOOaaU.",
+            ".UaaaaaaaaaaaaU.",
+            ".UUUUUUUUUUUUUU.",
+            "................",
+            "....ooook.......",
+          ],
+        },
+        coffee: {
+          steam: [4, 10],
+          rows: [
+            "..guuug.........",
+            "..gwwwggg.......",
+            "..gbbbg.g..aa...",
+            "..gGGGggg.aUaa..",
+            "..ggggg...aaUa..",
+          ],
+        },
+        clipboard: {
+          rows: [
+            ".....nn.........",
+            "..zznNNnzz......",
+            "..zwwwwwwz......",
+            "..zwEwGGwz......",
+            "..zwwwwwwz.R....",
+            "..zwEwGGwz.r....",
+            "..zwwwwwwz.r....",
+            "..zwrwGGwz.r....",
+            "..zwwwwwwz.r....",
+            "..zzzzzzzz.k....",
+          ],
+        },
+        shield: {
+          rows: [
+            "..GGGGGGGGGGG...",
+            "..GiiiiiiiiiG...",
+            "..GbbbYYYbbbG...",
+            "..GbbbYbYbbbG...",
+            "..GbbYYYYYbbG...",
+            "..GbbYYkYYbbG...",
+            "..GbbTTTTTbbG...",
+            "..GbbbbbbbbbG...",
+            "...GbbbbbbbG....",
+            "....GbbbbbG.....",
+            ".....GbbbG......",
+            "......GGG.......",
+          ],
+        },
+        safe: {
+          rows: [
+            ".nnnnnnnnnnnnn..",
+            ".nGGGGGGGGGGGn..",
+            ".ngnnnnnnnnngn..",
+            ".ngnNNNNNNNngn..",
+            ".ngnNkkkNNNngn..",
+            ".ngnkwwwkNNngn..",
+            ".ngnkwrwkYYngn..",
+            ".ngnkwwwkNNngn..",
+            ".ngnNkkkNNNngn..",
+            ".ngnNNNNNNNngn..",
+            ".ngnnnnnnnnngn..",
+            ".nnnnnnnnnnnnn..",
+            "..kk.......kk...",
+          ],
+        },
+        signal: {
+          rows: [
+            ".....kkkkkk.....",
+            ".....knnnnk.....",
+            ".....knrrnk.....",
+            ".....knrrnk.....",
+            ".....knnnnk.....",
+            ".....knEEnk.....",
+            ".....knEEnk.....",
+            ".....knnnnk.....",
+            ".....kkkkkk.....",
+            ".......kk.......",
+            ".......kk.......",
+            ".......kk.......",
+            ".....kkkkkk.....",
+          ],
+        },
+        books: {
+          rows: [
+            "....oooooooo....",
+            "....owwwwwwO....",
+            "....OOOOOOOO....",
+            "..bbbbbbbbbbb...",
+            "..bwwwwwwwwwB...",
+            "..BBBBBBBBBBB...",
+            "...mmmmmmmmmm...",
+            "...mwwwwwwwwd...",
+            "...dddddddddd...",
+          ],
+        },
+        magnifier: {
+          rows: [
+            ".....kkkk.......",
+            "....kcCCCk......",
+            "....kWCCCk......",
+            "....kCCCCk......",
+            "....kCCCCk......",
+            ".....kkkkz......",
+            "..........zz....",
+            "...........zz...",
+            "............zz..",
+          ],
+        },
+        chart: {
+          rows: [
+            ".UUUUUUUUUUUUUU.",
+            ".UAAAAAArAAAAAU.",
+            ".UawwwwwwwwwwaU.",
+            ".UawwwwwwwrrwaU.",
+            ".UawwwwwwwrrwaU.",
+            ".UawwwwoowrrwaU.",
+            ".UawwwwoowrrwaU.",
+            ".UawCCwoowrrwaU.",
+            ".UawGGGGGGGGwaU.",
+            ".UaaaaaaaaaaaaU.",
+            ".UUUUUUUUUUUUUU.",
+            "................",
+          ],
+        },
+        megaphone: {
+          rows: [
+            "....rr..........",
+            "..c.wrrr........",
+            ".c..wrrrrr......",
+            ".c..wrrrrrrrkk..",
+            ".c..wrrrrrrrkk..",
+            ".c..wrrrrr......",
+            "..c.wrrr.kk.....",
+            "....rr...kk.....",
+            ".........kk.....",
+            ".........kk.....",
+            "........kkkk....",
+          ],
+        },
+        palette: {
+          rows: [
+            "..............r.",
+            ".............rr.",
+            ".............g..",
+            "............z...",
+            "............z...",
+            "....UUUUUU.z....",
+            "..UUArAAoAUU....",
+            ".UAArAAAAoAAU...",
+            ".UAAAAAAAAACU...",
+            ".UAEAA..AAACU...",
+            ".UAEEA..AAbAU...",
+            "..UUAAAAAbAUU...",
+            "....UUUUUUU.....",
+          ],
+        },
+        camera: {
+          rows: [
+            "....kkkk........",
+            "..kkkkkkkkkkkk..",
+            "..knnnnkkknnrk..",
+            "..knnnkcCCknnk..",
+            "..knnnkCWCknnk..",
+            "..knnnkCCCknnk..",
+            "..knnnnkkknnnk..",
+            "..kkkkkkkkkkkk..",
+            ".......kk.......",
+            "......k..k......",
+            ".....k....k.....",
+          ],
+        },
+        notebook: {
+          rows: [
+            "...........oo...",
+            "..........oo....",
+            ".........oo.....",
+            "........kk......",
+            ".BBBBBBBBBBBBBB.",
+            ".BwwwwwwBwwwwwB.",
+            ".BwGGGGwBwGGGwB.",
+            ".BwwwwwwBwwwwwB.",
+            ".BwGGGwwBwGGwwB.",
+            ".BBBBBBBBBBBBBB.",
+          ],
+        },
+        lamp: {
+          rows: [
+            ".....kkkkkk.....",
+            "....kYYYYYYk....",
+            "...kYYYYYYYYk...",
+            "..kkkkkkkkkkkk..",
+            "....VVVVVVVV....",
+            ".......gg.......",
+            ".......gg.......",
+            ".......gg.......",
+            ".......gg.......",
+            ".......gg.......",
+            ".......gg.......",
+            ".....gggggg.....",
+            "....kkkkkkkk....",
+          ],
+        },
+        plant: {
+          rows: [
+            "......l..l......",
+            ".....lml.lmd....",
+            "....lmmdlmmd....",
+            "....mmdmmmd.....",
+            ".....mdsmd......",
+            "......ssd.......",
+            ".......s........",
+            ".....qqqqqq.....",
+            ".....qPPPPq.....",
+            ".....qppppq.....",
+            ".....qttttq.....",
+            ".....qqqqqq.....",
+          ],
+        },
+      };
+      const PLANT = [
+        "....ll....",
+        "...lGGd...",
+        "..lGGGd.l.",
+        ".lGGd.dlGd",
+        ".GGd.lGGGd",
+        "lGd..GGGd.",
+        "GGd.lGdd..",
+        "Gd..GGd.l.",
+        "d..lGGdlGd",
+        "..lGGd.GGd",
+        ".lGGd.lGd.",
+        ".GGd.sGGd.",
+        ".Gd..sGd..",
+        ".....s....",
+        "....ss....",
+        "....s.....",
+        "oooooooooo",
+        "oPPPPPPPPo",
+        "opppppppqo",
+        ".oooooooo.",
+        ".oPppppqo.",
+        ".oPppppqo.",
+        ".oPppppqo.",
+        ".oPppppqo.",
+        "..oPppqo..",
+        "..oPppqo..",
+        "..oooooo..",
+        ".hhhhhhhh.",
+      ];
+      const PLANT_COLORS = { ...LEAVES, o: POT[0], p: POT[1], P: POT[2], q: POT[3], h: SHADOW };
+      const EYE = "#1d1d1d";
+      const EYE_GLINT = "#ffffff";
+      const MOUTH = "#9c4a4a";
+      const PERSON = mirror([
+        "............",
+        "............",
+        "............",
+        "............",
+        "........kkkk",
+        "......kkssss",
+        ".....kssssss",
+        ".....kssssss",
+        ".....kSsssss",
+        ".....kSbbbss",
+        "...ksSssewss",
+        "...ksSsseess",
+        "...ksSssssss",
+        "....kSsssssS",
+        ".....kSsssss",
+        ".....kSsssmm",
+        "......kSssss",
+        ".......kSsss",
+        "........kkSS",
+        "....cccccclS",
+        "...ccccccclS",
+        "..cccccccccl",
+        ".ccccCcccccc",
+        ".CcccCcccccc",
+        ".CcccCcccccc",
+        ".CcccCcccccc",
+        ".CcccCcccccc",
+        ".CcccCcccccc",
+      ]);
+      const HAIRS = {
+        short: mirror([
+          "............",
+          "............",
+          ".......hhhhh",
+          ".....hhhhhhh",
+          "....hhhhHhhh",
+          "....hhhHhhhh",
+          "....hhhhhhhh",
+          "....hhh..hhh",
+          "....hh......",
+          "....h.......",
+        ]),
+        long: mirror([
+          "............",
+          "............",
+          ".......hhhhh",
+          ".....hhhhhhh",
+          "....hhhhHhhh",
+          "...hhhhHhhhh",
+          "...hhhhhhhhh",
+          "...hhhh..hhh",
+          "...hh.......",
+          "...hh.......",
+          "...hh.......",
+          "...hh.......",
+          "...hh.......",
+          "...hh.......",
+          "...hh.......",
+          "...hh.......",
+          "...hd.......",
+          "...hd.......",
+          "..hhd.......",
+          "..hhd.......",
+          "..hhd.......",
+          "..hhd.......",
+          "..hd........",
+        ]),
+        bun: mirror([
+          ".........hhh",
+          "........hhHh",
+          ".......hhhhd",
+          ".....hhhhhhh",
+          "....hhhhhhhh",
+          "....hHhhhhhh",
+          "....hhh.....",
+          "....hh......",
+          "....h.......",
+        ]),
+        afro: mirror([
+          "......hhhhhh",
+          "....hhhhhhhh",
+          "...hhhhHhhhh",
+          "..hhhhhhhHhh",
+          ".hhhhHhhhhhh",
+          ".hhhhhhhhhhh",
+          "hhhhhhhhhhhh",
+          "hhhhhhhhhhhh",
+          "hhhhhh......",
+          "hhhhh.......",
+          "dhhh........",
+          "dhhh........",
+          ".dhh........",
+          ".dhh........",
+          "..dh........",
+          "...d........",
+        ]),
+        braids: mirror([
+          "............",
+          "............",
+          ".......hhhhh",
+          ".....hhhhhhh",
+          "....hhhhHhhh",
+          "....hhhhhhh.",
+          "....hhhhhh..",
+          "....hhh.....",
+          "...hh.......",
+          "...hh.......",
+          "...hh.......",
+          "...hh.......",
+          "...hh.......",
+          "...hd.......",
+          "...dh.......",
+          "...hd.......",
+          "...dh.......",
+          "...hd.......",
+          "...dh.......",
+          "...hd.......",
+          "...dh.......",
+          "...hd.......",
+          "...dh.......",
+          "...HH.......",
+        ]),
+        bald: mirror([
+          "............",
+          "............",
+          "............",
+          "............",
+          "............",
+          "............",
+          "............",
+          "............",
+          "....hh......",
+          "....h.......",
+        ]),
+        curly: mirror([
+          "............",
+          "......h.h.hh",
+          ".....hhhhhhh",
+          "....hhHhhhHh",
+          "...hhhhhhhhh",
+          "...hhhHhhhhh",
+          "...hhhhhhhhh",
+          "...hh.hh.hhh",
+          "...hh.......",
+          "....h.......",
+          "...h........",
+        ]),
+      };
+      const HAIR_STYLES = Object.keys(HAIRS);
+      const BEARDED = new Set(["short", "bald", "afro", "curly"]);
+      const BEARD = mirror([
+        "............",
+        "............",
+        "............",
+        "............",
+        "............",
+        "............",
+        "............",
+        "............",
+        "............",
+        "............",
+        "............",
+        "............",
+        ".....h......",
+        ".....hh.....",
+        ".....hhh.hhh",
+        ".....hhhhh..",
+        "......hhhhhh",
+        ".......hhhhh",
+        "........hhhh",
+      ]);
+      const HAND = ["ssss", "SssS"];
+
+      const session = new URLSearchParams(location.search).get("session") ?? "";
+      const officeView = document.getElementById("office");
+      const heading = document.getElementById("heading");
+      const folder = document.getElementById("folder");
+      const summary = document.getElementById("summary");
+      const connection = document.getElementById("connection");
+      const limitsView = document.getElementById("limits");
+      const sessionsView = document.getElementById("sessions");
+      let offices;
+      let office;
+      let prefix;
+      let desks;
+      let agents;
+      let definitions;
+      let sessionCwd = null;
+      let sessionModel = null;
+      let sessionEffort = null;
+      let limits = null;
+      let views = [];
+      let frame = 0;
+      let pending = 0;
+
+      function hash(text) {
+        let value = 2166136261;
+        for (const char of text) value = Math.imul(value ^ char.charCodeAt(0), 16777619);
+        return value >>> 0;
+      }
+
+      function rect(ctx, color, x, y, width, height) {
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, width, height);
+      }
+
+      function box(ctx, x, y, width, height, [outline, fill, light, shade]) {
+        rect(ctx, outline, x, y, width, height);
+        rect(ctx, fill, x + 1, y + 1, width - 2, height - 2);
+        if (light) rect(ctx, light, x + 1, y + 1, width - 2, 1);
+        if (shade) rect(ctx, shade, x + 1, y + height - 2, width - 2, 1);
+      }
+
+      function sprite(ctx, rows, x, y, palette, size = 1) {
+        rows.forEach((row, dy) =>
+          [...row].forEach((key, dx) => {
+            if (palette[key]) rect(ctx, palette[key], x + dx * size, y + dy * size, size, size);
+          }),
+        );
+      }
+
+      function mirror(halves) {
+        return halves.map((half) => half + [...half].reverse().join(""));
+      }
+
+      function tint(hex, amount) {
+        const value = parseInt(hex.slice(1), 16);
+        const target = amount < 0 ? 0 : 255;
+        const channel = (shift) => {
+          const color = (value >> shift) & 255;
+          return Math.round(color + (target - color) * Math.abs(amount));
+        };
+        return `rgb(${channel(16)}, ${channel(8)}, ${channel(0)})`;
+      }
+
+      function look(id) {
+        const seed = hash(id);
+        const hair = HAIR_STYLES[(seed >>> 3) % HAIR_STYLES.length];
+        return {
+          skin: SKINS[seed % SKINS.length],
+          hair,
+          hairColor: HAIR_COLORS[(seed >>> 7) % HAIR_COLORS.length],
+          beard: BEARDED.has(hair) && (seed >>> 11) % 3 === 0,
+          seed,
+        };
+      }
+
+      function newAgent(id, type, state) {
+        return { id, type, state, model: null, effort: null, activity: null, message: null, desk: null, seat: 0 };
+      }
+
+      function officeName(type) {
+        const name = type?.split(":")[0];
+        return type?.includes(":") && Object.hasOwn(offices, name) ? name : null;
+      }
+
+      function agentName(type) {
+        return prefix && type?.startsWith(`${prefix}:`) ? type.slice(prefix.length + 1) : null;
+      }
+
+      function makeDesk(agent, config, guest) {
+        const type = agent && `${prefix}:${agent}`;
+        return { agent, type, title: config.title, item: config.item, screen: config.screen, shirt: config.shirt, guest, top: false, seats: [] };
+      }
+
+      function deskFor(agent) {
+        if (agent.id === "main") return desks[0];
+        const name = agentName(agent.type);
+        return desks.find((desk) => name && desk.agent === name) ?? desks.at(-1);
+      }
+
+      function sit(agent) {
+        const desk = deskFor(agent);
+        let index = 0;
+        while (desk.seats[index]?.agentId) index++;
+        desk.seats[index] = { agentId: agent.id, message: null };
+        agent.desk = desk;
+        agent.seat = index;
+      }
+
+      function arrive(agent) {
+        if (!agent.desk) sit(agent);
+      }
+
+      function leave(agent) {
+        if (!agent.desk) return;
+        agent.desk.seats[agent.seat] = { agentId: null, message: agent.message };
+        agent.desk = null;
+      }
+
+      function dismiss(agent) {
+        agent.state = "done";
+        leave(agent);
+      }
+
+      function build() {
+        const main = agents.get("main");
+        prefix = officeName(main.type);
+        office = prefix ? offices[prefix] : DEFAULT_OFFICE;
+        const own = Object.entries(office.agents).map(([name, config]) => makeDesk(name, config, false));
+        const index = own.findIndex((desk) => desk.agent === agentName(main.type));
+        const top = { ...(index === -1 ? makeDesk(null, MAIN, false) : own.splice(index, 1)[0]), top: true };
+        desks = [top, ...own, makeDesk(null, office.guests, true)];
+        for (const agent of agents.values()) {
+          agent.desk = null;
+          if (agent.state !== "done") sit(agent);
+        }
+      }
+
+      function reset() {
+        agents = new Map([["main", newAgent("main", null, "idle")]]);
+        definitions = {};
+        build();
+      }
+
+      function agentFor(event) {
+        const id = event.agentId ?? "main";
+        if (!agents.has(id)) {
+          const agent = newAgent(id, event.agentType ?? "agent", "working");
+          agents.set(id, agent);
+          sit(agent);
+        }
+        return agents.get(id);
+      }
+
+      function apply(event) {
+        if (event.agentId && !event.agentType) return;
+        const agent = agentFor(event);
+        switch (event.event) {
+          case "SessionStart":
+            agent.type = event.agentType ?? null;
+            agent.model = event.model ?? null;
+            agent.effort = event.effort ?? null;
+            definitions = typeof event.agents === "object" && event.agents !== null ? event.agents : {};
+            if (agent.state === "done") agent.state = "idle";
+            build();
+            break;
+          case "UserPromptSubmit":
+            if (agent.state === "working") {
+              for (const each of agents.values()) if (each !== agent && each.state === "working") dismiss(each);
+            }
+            agent.state = "working";
+            agent.activity = null;
+            arrive(agent);
+            break;
+          case "SubagentStart":
+            agent.model = event.model ?? null;
+            agent.effort = event.effort ?? null;
+            agent.state = "working";
+            agent.activity = null;
+            arrive(agent);
+            break;
+          case "PreToolUse":
+            agent.state = "working";
+            agent.activity = event.activity ?? null;
+            arrive(agent);
+            break;
+          case "Stop":
+            agent.state = "idle";
+            agent.message = event.message ?? null;
+            break;
+          case "SubagentStop":
+            agent.message = event.message ?? null;
+            dismiss(agent);
+            break;
+          case "SessionEnd":
+            for (const each of agents.values()) dismiss(each);
+            break;
+        }
+      }
+
+      function occupant(seat) {
+        return seat?.agentId ? agents.get(seat.agentId) : undefined;
+      }
+
+      function visibleSeats(desk) {
+        return Math.min(MAX_SEATS, Math.max(1, desk.seats.findLastIndex((seat) => seat?.agentId) + 1));
+      }
+
+      function rows(items) {
+        const count = Math.ceil(items.length / PER_ROW);
+        const result = [];
+        let start = 0;
+        for (let row = 0; row < count; row++) {
+          const size = Math.floor(items.length / count) + (row < items.length % count ? 1 : 0);
+          result.push(items.slice(start, start + size));
+          start += size;
+        }
+        return result;
+      }
+
+      function seatName(desk, index, agent) {
+        if (desk.guest) return agent?.type ?? desk.title;
+        return index === 0 ? desk.title : `${desk.title} ${index + 1}`;
+      }
+
+      function capitalize(text) {
+        return text && text[0].toUpperCase() + text.slice(1);
+      }
+
+      function modelName(model) {
+        return capitalize(model?.match(FAMILY)?.[0].toLowerCase() ?? model);
+      }
+
+      function sessionSettings() {
+        const main = agents.get("main");
+        return { model: sessionModel ?? main.model, effort: sessionEffort ?? main.effort };
+      }
+
+      function specText(settings) {
+        const current = sessionSettings();
+        const model = !settings.model || settings.model === "inherit" ? current.model : settings.model;
+        return [modelName(model), capitalize(settings.effort ?? current.effort)].filter(Boolean).join(" · ");
+      }
+
+      function agentSpec(agent) {
+        return specText(agent.id === "main" ? sessionSettings() : agent);
+      }
+
+      function deskSpec(desk) {
+        return desk.type && Object.hasOwn(definitions, desk.type) ? specText(definitions[desk.type]) : "";
+      }
+
+      function bubbleText(agent, seat) {
+        if (!agent) return seat?.message;
+        return agent.state === "working" ? agent.activity : agent.message;
+      }
+
+      function element(tag, className, text = "") {
+        const node = document.createElement(tag);
+        node.className = className;
+        node.textContent = text;
+        return node;
+      }
+
+      function bubbleView(agent, seat) {
+        const text = bubbleText(agent, seat) ?? "";
+        const bubble = element("div", "bubble");
+        bubble.classList.toggle("empty", !text);
+        bubble.classList.toggle("old", !agent);
+        bubble.title = text;
+        bubble.append(element("p", "", text));
+        return bubble;
+      }
+
+      function plateView(desk, index, agent) {
+        const plate = element("div", "plate");
+        plate.dataset.state = agent?.state ?? "empty";
+        plate.append(element("div", "name", seatName(desk, index, agent)), element("div", "spec", agent ? agentSpec(agent) : deskSpec(desk)));
+        return plate;
+      }
+
+      function canvasView(width, height, draw) {
+        const canvas = document.createElement("canvas");
+        canvas.width = width * FINE;
+        canvas.height = height * FINE;
+        canvas.style.width = `${width * SCALE}px`;
+        canvas.style.height = `${height * SCALE}px`;
+        canvas.getContext("2d").setTransform(FINE, 0, 0, FINE, 0, 0);
+        views.push(() => draw(canvas));
+        return canvas;
+      }
+
+      function deskView(desk) {
+        const count = visibleSeats(desk);
+        const view = element("div", "desk");
+        const bubbles = element("div", "cells bubbles");
+        const frameBox = element("div", "frame");
+        const plates = element("div", "cells plates");
+        for (let index = 0; index < count; index++) {
+          const seat = desk.seats[index];
+          const agent = occupant(seat);
+          bubbles.append(bubbleView(agent, seat));
+          plates.append(plateView(desk, index, agent));
+        }
+        frameBox.append(canvasView(LEFT + SEAT * count, DESK_HEIGHT, (canvas) => drawDesk(canvas, desk)), plates);
+        const overflow = desk.seats.slice(MAX_SEATS).filter((seat) => seat?.agentId).length;
+        if (overflow) frameBox.append(element("div", "badge", `+${overflow}`));
+        view.append(bubbles, frameBox);
+        return view;
+      }
+
+      function decorView(width, paint) {
+        const view = element("div", "decor");
+        view.append(
+          canvasView(width, DECOR_HEIGHT, (canvas) => {
+            const ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width / FINE, canvas.height / FINE);
+            paint(ctx);
+          }),
+        );
+        return view;
+      }
+
+      function rowView(list) {
+        const row = element("div", "row");
+        row.append(...list.map(deskView));
+        return row;
+      }
+
+      function topView(desk) {
+        const row = rowView([desk]);
+        row.prepend(decorView(PLANT_WIDTH, drawPlant), decorView(COUCH_WIDTH, drawCouch));
+        row.append(decorView(KITCHEN_WIDTH, drawKitchen), decorView(PLANT_WIDTH, drawPlant));
+        return row;
+      }
+
+      function monitor(ctx, x, width, state, screen, seed) {
+        const foot = width > 7 ? 5 : 3;
+        rect(ctx, "#1a1c2c", x, 5, width, 10);
+        rect(ctx, "#4a4f66", x + 1, 6, width - 2, 8);
+        rect(ctx, "#6b7290", x + 1, 6, width - 2, 1);
+        rect(ctx, SCREENS[state], x + 2, 7, width - 4, 6);
+        rect(ctx, "#2a2f45", x + ((width - foot) >> 1), 15, foot, 1);
+        if (state !== "empty") rect(ctx, GLARE, x + width - 3, 7, 1, 2);
+        if (state === "working") {
+          for (let line = 0; line < 3; line++) {
+            const length = 1 + ((seed + frame + line * 3) % (width - 5));
+            const failed = (seed + frame + line) % 4 === 0;
+            const color = screen === "tests" ? (failed ? "#e43b44" : "#a7f070") : "#7fdbff";
+            rect(ctx, color, x + 2, 8 + line * 2, length, 1);
+          }
+        }
+        if (state === "idle" && frame % 2) rect(ctx, "#f4f4f4", x + 2, 8, 1, 2);
+      }
+
+      function drawItem(ctx, key) {
+        if (!Object.hasOwn(ITEMS, key ?? "")) return;
+        const item = ITEMS[key];
+        sprite(ctx, item.rows, 0, LEFT - item.rows.length, ITEM_COLORS);
+        if (item.steam) steam(ctx, ...item.steam);
+      }
+
+      function drawTable(ctx, width, top) {
+        const wood = top ? DARK_WOOD : WOOD;
+        const bottom = DESK_HEIGHT - 4;
+        rect(ctx, SHADOW, 1, DESK_HEIGHT - 1, width - 2, 1);
+        rect(ctx, wood.outline, 0, 16, width, bottom - 15);
+        rect(ctx, wood.top, 1, 16, width - 2, 1);
+        rect(ctx, wood.edge, 1, 17, width - 2, 1);
+        rect(ctx, wood.front, 1, 18, width - 2, bottom - 18);
+        for (let x = 20; x < width - 8; x += 13) rect(ctx, wood.grain, x, 19 + ((x >> 2) % 4), 6, 1);
+        box(ctx, 3, 19, 10, 4, wood.drawer);
+        rect(ctx, wood.handle, 7, 20, 2, 1);
+        box(ctx, 2, bottom, 3, DESK_HEIGHT - bottom, [wood.outline, wood.leg]);
+        box(ctx, width - 5, bottom, 3, DESK_HEIGHT - bottom, [wood.outline, wood.leg]);
+      }
+
+      function drawPlant(ctx) {
+        sprite(ctx, PLANT, 0, 0, PLANT_COLORS);
+      }
+
+      function drawCouch(ctx) {
+        rect(ctx, SHADOW, 2, 27, 26, 1);
+        rect(ctx, "#1a1c2c", 2, 25, 2, 2);
+        rect(ctx, "#1a1c2c", 26, 25, 2, 2);
+        box(ctx, 3, 10, 12, 9, COUCH);
+        box(ctx, 14, 10, 13, 9, COUCH);
+        box(ctx, 6, 13, 5, 5, PILLOW);
+        box(ctx, 4, 17, 12, 5, COUCH);
+        box(ctx, 15, 17, 11, 5, COUCH);
+        box(ctx, 3, 21, 24, 4, COUCH_BASE);
+        box(ctx, 1, 14, 4, 11, COUCH);
+        box(ctx, 25, 14, 4, 11, COUCH);
+      }
+
+      function steam(ctx, x, y) {
+        const drift = frame % 2 ? 1 : -1;
+        for (const [dx, dy] of [
+          [0, 0],
+          [drift, -1],
+          [0, -2],
+          [-drift, -3],
+        ]) {
+          rect(ctx, STEAM, x + dx, y + dy, 1, 1);
+        }
+      }
+
+      function drawKitchen(ctx) {
+        rect(ctx, SHADOW, 0, 27, KITCHEN_WIDTH, 1);
+        box(ctx, 0, 16, 16, 11, [WOOD.outline, WOOD.front, WOOD.edge, WOOD.leg]);
+        rect(ctx, WOOD.top, 0, 16, 16, 1);
+        rect(ctx, WOOD.outline, 8, 18, 1, 7);
+        rect(ctx, WOOD.handle, 6, 21, 1, 1);
+        rect(ctx, WOOD.handle, 10, 21, 1, 1);
+        box(ctx, 1, 4, 10, 12, MACHINE);
+        rect(ctx, "#0c0e14", 3, 6, 5, 2);
+        rect(ctx, "#73eff7", 4, 6, 3, 1);
+        rect(ctx, "#e43b44", 9, 6, 1, 1);
+        rect(ctx, "#a7f070", 9, 7, 1, 1);
+        rect(ctx, "#141824", 3, 9, 6, 5);
+        rect(ctx, "#8b9bb4", 5, 9, 2, 1);
+        rect(ctx, "#c0cbdc", 4, 10, 4, 4);
+        rect(ctx, "#4a2717", 4, 12, 4, 2);
+        rect(ctx, "#ffffff", 4, 10, 1, 2);
+        rect(ctx, "#c0cbdc", 8, 11, 1, 2);
+        rect(ctx, "#5a6988", 3, 14, 6, 1);
+        box(ctx, 12, 12, 3, 4, MUG);
+        rect(ctx, MUG[0], 15, 13, 1, 2);
+        rect(ctx, "#6e3a22", 13, 12, 1, 1);
+        steam(ctx, 13, 11);
+        box(ctx, 19, 10, 11, 17, COOLER);
+        box(ctx, 21, 12, 7, 6, COOLER_PANEL);
+        rect(ctx, "#e43b44", 22, 13, 2, 2);
+        rect(ctx, "#41a6f6", 25, 13, 2, 2);
+        rect(ctx, "#5a6988", 22, 16, 5, 1);
+        box(ctx, 21, 19, 7, 6, COOLER_DOOR);
+        rect(ctx, "#8b9bb4", 26, 21, 1, 2);
+        box(ctx, 20, 0, 9, 9, BOTTLE);
+        rect(ctx, "#2e6fa8", 22, 8, 5, 2);
+        rect(ctx, "#d6f7fa", 21, 1, 7, 2);
+        rect(ctx, "#ffffff", 22, 3, 1, 4);
+        rect(ctx, "#c0f5fb", 25, 7 - (frame % 4), 1, 1);
+        rect(ctx, "#c0f5fb", 26, 7 - ((frame + 2) % 4), 1, 1);
+      }
+
+      function drawSeat(ctx, desk, index) {
+        const x = LEFT + SEAT * index;
+        const agent = occupant(desk.seats[index]);
+        const style = agent && look(agent.id);
+        const state = agent?.state ?? "empty";
+        const seed = style?.seed ?? 0;
+        box(ctx, x + 1, 9, 14, 7, CHAIR);
+        if (style) {
+          const body = {
+            s: style.skin,
+            S: tint(style.skin, -0.15),
+            k: tint(style.skin, -0.4),
+            e: EYE,
+            w: EYE_GLINT,
+            b: style.hairColor,
+            m: MOUTH,
+            c: desk.shirt,
+            C: tint(desk.shirt, -0.2),
+            l: tint(desk.shirt, 0.5),
+          };
+          const hair = { h: style.hairColor, H: tint(style.hairColor, 0.25), d: tint(style.hairColor, -0.3) };
+          sprite(ctx, PERSON, x + 2, 2, body, 1 / FINE);
+          sprite(ctx, HAIRS[style.hair], x + 2, 2, hair, 1 / FINE);
+          if (style.beard) sprite(ctx, BEARD, x + 2, 2, hair, 1 / FINE);
+        }
+        monitor(ctx, x + 17, 14, state, desk.screen, seed);
+      }
+
+      function drawHands(ctx, desk, index) {
+        const x = LEFT + SEAT * index;
+        const agent = occupant(desk.seats[index]);
+        rect(ctx, "#1a1c2c", x + 3, 16, 8, 1);
+        for (let key = 0; key < 4; key++) rect(ctx, "#8b9bb4", x + 4 + key * 2, 16, 1, 1);
+        rect(ctx, "#c0cbdc", x + 12, 16, 2, 1);
+        if (!agent) return;
+        const { skin } = look(agent.id);
+        const hand = { s: skin, S: tint(skin, -0.15) };
+        const raised = agent.state === "working" ? frame % 2 : -1;
+        sprite(ctx, HAND, x + 3, raised === 0 ? 15 : 16, hand, 1 / FINE);
+        sprite(ctx, HAND, x + 9, raised === 1 ? 15 : 16, hand, 1 / FINE);
+      }
+
+      function drawDesk(canvas, desk) {
+        const ctx = canvas.getContext("2d");
+        const count = visibleSeats(desk);
+        const width = canvas.width / FINE;
+        ctx.clearRect(0, 0, width, canvas.height / FINE);
+        drawItem(ctx, desk.item);
+        for (let index = 0; index < count; index++) drawSeat(ctx, desk, index);
+        drawTable(ctx, width, desk.top);
+        for (let index = 0; index < count; index++) drawHands(ctx, desk, index);
+      }
+
+      function drawAll() {
+        for (const draw of views) draw();
+      }
+
+      function render() {
+        pending = 0;
+        views = [];
+        const [top, ...rest] = desks;
+        officeView.replaceChildren(topView(top), ...rows(rest).map(rowView));
+        let working = 0;
+        let done = 0;
+        for (const agent of agents.values()) {
+          if (agent.state === "working") working++;
+          if (agent.state === "done" && agent.id !== "main") done++;
+        }
+        heading.textContent = office.title ? `${office.title} office` : "Agent office";
+        folder.textContent = folderName(sessionCwd) ?? "";
+        folder.title = sessionCwd ?? "";
+        summary.textContent = `${working} working · ${done} done`;
+        drawAll();
+      }
+
+      function schedule() {
+        if (!pending) pending = requestAnimationFrame(render);
+      }
+
+      function animate() {
+        frame++;
+        drawAll();
+      }
+
+      function connect() {
+        const source = new EventSource(`/events?session=${encodeURIComponent(session)}`);
+        source.onopen = () => {
+          reset();
+          render();
+          connection.textContent = "";
+        };
+        source.onmessage = (message) => {
+          apply(JSON.parse(message.data));
+          schedule();
+        };
+        source.onerror = () => {
+          connection.textContent = "reconnecting…";
+        };
+      }
+
+      function remaining(ms) {
+        const seconds = Math.floor(ms / 1000);
+        const hours = Math.floor(seconds / 3600);
+        const pad = (value) => String(value).padStart(2, "0");
+        if (hours >= 24) return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+        return `${hours}:${pad(Math.floor(seconds / 60) % 60)}:${pad(seconds % 60)}`;
+      }
+
+      function resetText(resetsAt, withDay) {
+        const ms = resetsAt * 1000 - Date.now();
+        if (ms <= 0) return "resets now";
+        const date = new Date(resetsAt * 1000);
+        const day = withDay ? `${date.toLocaleDateString([], { weekday: "short" })} ` : "";
+        const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        return `resets ${day}${time} (${remaining(ms)})`;
+      }
+
+      function limitView(window, label, className, withDay) {
+        if (typeof window?.used_percentage !== "number") return null;
+        const used = Math.min(100, Math.max(0, Math.round(window.used_percentage)));
+        const view = element("div", "limit");
+        const bar = element("div", "bar");
+        const fill = element("div", `fill ${className}`);
+        fill.style.width = `${used}%`;
+        bar.append(fill, element("span", "bar-label", `${label} ${used}%`));
+        view.append(bar);
+        if (typeof window.resets_at === "number") view.append(element("span", "reset", resetText(window.resets_at, withDay)));
+        return view;
+      }
+
+      async function fetchJson(path) {
+        try {
+          const response = await fetch(path);
+          return response.ok ? await response.json() : null;
+        } catch {
+          return null;
+        }
+      }
+
+      async function loadStatus() {
+        const status = await fetchJson(`/status.json?session=${encodeURIComponent(session)}`);
+        const model = typeof status?.model === "string" ? status.model : null;
+        const effort = typeof status?.effort === "string" ? status.effort : null;
+        if (model === sessionModel && effort === sessionEffort) return;
+        sessionModel = model;
+        sessionEffort = effort;
+        schedule();
+      }
+
+      function renderLimits() {
+        limitsView.replaceChildren(
+          ...[
+            limitView(limits?.five_hour, "5h", "five-hour", false),
+            limitView(limits?.seven_day, "7d", "seven-day", true),
+          ].filter(Boolean),
+        );
+      }
+
+      async function loadLimits() {
+        limits = await fetchJson("/limits.json");
+        renderLimits();
+      }
+
+      function folderName(path) {
+        return path?.split(/[\\/]/).filter(Boolean).at(-1);
+      }
+
+      function ago(ms) {
+        const minutes = Math.floor((Date.now() - ms) / 60_000);
+        if (minutes < 1) return "just now";
+        if (minutes < 60) return `${minutes}m ago`;
+        return `${Math.floor(minutes / 60)}h ago`;
+      }
+
+      function sessionView(item) {
+        const state = item.ended ? "ended" : "live";
+        const link = element("a", "entry");
+        link.href = `/?session=${encodeURIComponent(item.id)}`;
+        link.title = item.cwd ?? item.id;
+        link.dataset.state = state;
+        link.append(
+          element("span", "dot", item.ended ? "○" : "●"),
+          element("span", "project", folderName(item.cwd) ?? "—"),
+          element("span", "id", item.id),
+          element("span", "state", state),
+          element("span", "time", ago(item.updated)),
+        );
+        return link;
+      }
+
+      async function loadSessions() {
+        const list = await fetchJson("/sessions.json");
+        if (!Array.isArray(list)) {
+          connection.textContent = "Could not load sessions.";
+          return;
+        }
+        connection.textContent = "";
+        summary.textContent = `${list.length} sessions`;
+        sessionsView.replaceChildren(...(list.length ? list.map(sessionView) : [element("p", "", "No sessions in the last 24 hours.")]));
+      }
+
+      async function loadFolder() {
+        const list = await fetchJson("/sessions.json");
+        sessionCwd = (Array.isArray(list) && list.find((item) => item.id === session)?.cwd) || null;
+        schedule();
+      }
+
+      async function start() {
+        try {
+          offices = await (await fetch("/offices.json")).json();
+        } catch {
+          connection.textContent = "Could not load offices.json.";
+          return;
+        }
+        loadLimits();
+        setInterval(loadLimits, POLL_MS);
+        setInterval(renderLimits, TICK_MS);
+        if (!SESSION.test(session)) {
+          loadSessions();
+          setInterval(loadSessions, LIST_MS);
+          return;
+        }
+        reset();
+        render();
+        setInterval(animate, FRAME_MS);
+        loadFolder();
+        loadStatus();
+        setInterval(loadStatus, POLL_MS);
+        connect();
+      }
+
+      start();
+    </script>
+  </body>
+</html>

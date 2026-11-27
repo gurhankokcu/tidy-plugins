@@ -1,0 +1,7 @@
+{
+  "name": "tidy-office",
+  "displayName": "Tidy Agent Office",
+  "description": "A pixel office in the browser that shows each agent at its desk while it works",
+  "version": "1.0.0",
+  "author": { "name": "gurhankokcu" }
+}
