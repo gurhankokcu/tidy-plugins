@@ -1,6 +1,6 @@
 {
   "name": "tidy-office",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A pixel office in the browser that shows each agent at its desk while it works",
   "type": "module"
 }

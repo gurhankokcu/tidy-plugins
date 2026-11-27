@@ -3,12 +3,13 @@ import { join } from "node:path";
 import { cut, entries, SETTING_MAX } from "../app/files.mjs";
 
 const SESSION = /^[A-Za-z0-9_-]+$/;
+const SESSION_FILE = /^[A-Za-z0-9_-]+\.(jsonl|status\.json)$/;
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const ACTIVITY_MAX = 80;
 const MESSAGE_MAX = 280;
 
 function prune(dir) {
-  for (const name of entries(dir)) {
+  for (const name of entries(dir).filter((each) => SESSION_FILE.test(each))) {
     const file = join(dir, name);
     try {
       if (Date.now() - statSync(file).mtimeMs > MAX_AGE_MS) unlinkSync(file);

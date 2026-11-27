@@ -37,7 +37,7 @@ Start the manager and talk to it:
 | "plan a login page"                            | Sends the `planner`, shows the plan, waits for go or changes                                                       |
 | "go", or "next"                                | Sends the `developer` for the plan or the named steps. Passes on any question                                      |
 | "review", "review full", "review only the API" | Sends the `reviewer` and `security` at the same time, plus the `tester` if asked. Runs the debate. Shows the table |
-| "fix 1 and 3"                                  | Resumes the `developer` with the numbers, then runs the `tester`                                                   |
+| "fix 1 and 3"                                  | Resumes or starts the `developer` with the numbers, then runs the `tester`                                         |
 | "test"                                         | Sends the `tester`                                                                                                 |
 | "debug: login fails on Safari"                 | Sends the `tester` to find the cause                                                                               |
 | "debug check 2"                                | Sends the `tester` to find the cause of a failing check                                                            |
@@ -75,9 +75,9 @@ The manager stops at every gate and waits for you.
 | Bug diagnosed         | The numbered causes with suggested fixes              | Numbers to fix                       |
 | Check failed          | The tester's table, with the failing output           | A check to debug, or done            |
 
-### Hands-on skills
+### Active skills
 
-Without the manager, start a plain session and type one skill at a time. Each skill holds the whole job, so your session does the work the agent would do.
+Without the manager, start a plain session and type one active skill at a time. Each skill holds the whole job, so your session does the work the agent would do.
 
 | Claude Code                              | opencode                                 | Does                                                                  |
 | ---------------------------------------- | ---------------------------------------- | --------------------------------------------------------------------- |
@@ -121,7 +121,7 @@ This costs tokens: a review runs the reviewer, security and the developer over u
 
 ### The skills
 
-The agent files are thin. The work lives in ten skills.
+The agent files are thin. The work lives in ten skills: eight active skills, the jobs you can type, and two passive skills, the standards the agents load.
 
 | Skill            | Used by                             | Holds                                                                                |
 | ---------------- | ----------------------------------- | ------------------------------------------------------------------------------------ |
@@ -136,7 +136,7 @@ The agent files are thin. The work lives in ten skills.
 | `test`           | `tester`                            | Run the checks for any stack. When asked, start the app and try the change           |
 | `debug`          | `tester`                            | Reproduce the bug, narrow it down, find the cause                                    |
 
-`clean-code` and `secure-code` are standards, not jobs. They have no `/` command.
+`clean-code` and `secure-code` are passive skills: standards, not jobs. They have no `/` command.
 
 In opencode a skill's name starts with `tidy-dev-`, like `tidy-dev-plan`.
 

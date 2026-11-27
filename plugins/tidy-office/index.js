@@ -7,7 +7,7 @@ import { record } from "./hooks/journal.mjs";
 
 const DIR = join(homedir(), ".local", "share", "tidy-office");
 const SERVER = fileURLToPath(new URL("app/server.mjs", import.meta.url));
-const PORT = process.env.TIDY_OFFICE_PORT ?? "7342";
+const COMMAND = "tidy-office/open";
 const TYPES = [
   "session.created",
   "session.agent.selected",
@@ -44,8 +44,6 @@ function describe(tool, input = {}) {
     case "edit":
     case "write":
       return `${tool} ${basename(input.path ?? "")}`;
-    case "shell":
-      return input.command;
     case "grep":
     case "glob":
       return `${tool} "${input.pattern ?? ""}"`;
@@ -146,10 +144,10 @@ export function writeTeams(agents) {
   writeFileSync(join(DIR, "teams.json"), JSON.stringify(teams), { mode: 0o600 });
 }
 
-function open(id) {
+function open(id, port) {
   return new Promise((resolve, reject) => {
-    const env = { ...process.env, TIDY_OFFICE_PORT: PORT };
-    const server = spawn("node", [SERVER, DIR, known(id).root], { env, stdio: ["ignore", "ignore", "pipe"] });
+    const args = [SERVER, DIR, known(id).root, port, `/${COMMAND}`];
+    const server = spawn("node", args, { stdio: ["ignore", "ignore", "pipe"] });
     let error = "";
     server.stderr.on("data", (chunk) => (error += chunk));
     server.on("error", reject);
@@ -165,12 +163,12 @@ export default {
     });
     await ctx.command.transform((commands) => {
       commands.add({
-        name: "tidy-office/open",
+        name: COMMAND,
         description: "Open the Tidy Agent Office, a pixel office in the browser that shows this session's agents live",
-        execute: async ({ sessionID }) => {
+        execute: async ({ sessionID, prompt }) => {
           const agents = await ctx.agent.list();
           writeTeams(Array.isArray(agents) ? agents : agents.data);
-          await open(sessionID);
+          await open(sessionID, prompt.text.trim());
         },
       });
     });

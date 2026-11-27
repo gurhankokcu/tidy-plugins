@@ -8,10 +8,15 @@ import { fileURLToPath } from "node:url";
 import { agentFiles, cut, entries, load, plugins, SETTING_MAX, WORD } from "./files.mjs";
 
 const HOST = "127.0.0.1";
-const PORT = Number(process.env.TIDY_OFFICE_PORT ?? 7341);
+const DEFAULT_PORT = 7542;
+const PORT_MIN = 1024;
+const PORT_MAX = 65535;
+const WHOLE_NUMBER = /^\d+$/;
+const COMMANDS = new Set(["/tidy-office:open", "/tidy-office/open"]);
+const [DIR, TARGET, PORT_TEXT, COMMAND] = process.argv.slice(2);
+const PORT = port(PORT_TEXT);
 const ORIGIN = `http://${HOST}:${PORT}`;
 const HOSTS = new Set([`${HOST}:${PORT}`, `localhost:${PORT}`]);
-const [DIR, TARGET] = process.argv.slice(2);
 // A server on the port is this office only when it serves the same data folder.
 const HEALTH = `tidy-office ${DIR}`;
 const SESSION = /^[A-Za-z0-9_-]+$/;
@@ -39,6 +44,15 @@ function fail(message) {
   process.exit(1);
 }
 
+function port(text) {
+  if (!text) return DEFAULT_PORT;
+  const value = Number(text);
+  if (!WHOLE_NUMBER.test(text) || value < PORT_MIN || value > PORT_MAX) {
+    fail(`The port must be a whole number from ${PORT_MIN} to ${PORT_MAX}.`);
+  }
+  return value;
+}
+
 async function healthy() {
   try {
     const response = await fetch(`${ORIGIN}/health`, { signal: AbortSignal.timeout(500) });
@@ -62,10 +76,16 @@ function open(url) {
 }
 
 async function launch(session) {
-  if (!DIR || !SESSION.test(session ?? "")) fail("Usage: node server.mjs <data-dir> <session-id>");
+  if (!DIR || !SESSION.test(session ?? "") || !COMMANDS.has(COMMAND)) {
+    fail(`Usage: node server.mjs <data-dir> <session-id> <port, or "" for ${DEFAULT_PORT}> <open-command>`);
+  }
   if (!(await healthy())) {
-    spawn(process.execPath, [SELF, DIR, "--serve"], { detached: true, stdio: "ignore", windowsHide: true }).unref();
-    if (!(await waitUntilHealthy())) fail(`Tidy Agent Office could not start on port ${PORT}.`);
+    const options = { detached: true, stdio: "ignore", windowsHide: true };
+    spawn(process.execPath, [SELF, DIR, "--serve", String(PORT)], options).unref();
+    if (!(await waitUntilHealthy())) {
+      const other = PORT < PORT_MAX ? PORT + 1 : PORT - 1;
+      fail(`Tidy Agent Office could not start on port ${PORT}. Pass another port, like \`${COMMAND} ${other}\`.`);
+    }
   }
   const url = `${ORIGIN}/?session=${session}`;
   open(url);

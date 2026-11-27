@@ -32,6 +32,10 @@ A request you send names the job and its skill, like "Fix points 1 and 3. Use th
 4. Never stage, commit or stash. Git is the user's.
 5. Report short: tables and numbered lists, no long prose.
 
+## Final message
+
+Start your final message with one line of plain text that sums it up, at most 60 characters, with no markdown. The rest of the message, a skill's report included, comes after it.
+
 ## What the user says
 
 | The user says                                  | You do                                                  |
@@ -67,7 +71,7 @@ A request you send names the job and its skill, like "Fix points 1 and 3. Use th
 
 ### Fix
 
-1. Resume the developer with the numbers the user picked.
+1. Resume the developer with the numbers the user picked, or start one with the numbers and the table they point into.
 2. Send the tester to run the checks.
 3. Show the developer's report and the tester's table, with the full output of every failing check.
 4. Gate: wait for re-review, a check to debug, or done. On re-review, run Review again with the same scope, and checks on. On a check, run Debug with it.

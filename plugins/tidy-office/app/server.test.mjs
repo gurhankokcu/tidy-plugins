@@ -52,7 +52,6 @@ async function freePort() {
 
 const PORT = await freePort();
 const ORIGIN = `http://${HOST}:${PORT}`;
-const ENV = { ...process.env, TIDY_OFFICE_PORT: String(PORT) };
 
 function request(path, { method = "GET", headers = {} } = {}) {
   return new Promise((resolve, reject) => {
@@ -103,7 +102,7 @@ describe("server", () => {
   let server;
 
   before(async () => {
-    server = spawn(process.execPath, [SERVER, DIR, "--serve"], { env: ENV, stdio: "ignore" });
+    server = spawn(process.execPath, [SERVER, DIR, "--serve", String(PORT)], { stdio: "ignore" });
     await started();
   });
 
@@ -169,16 +168,53 @@ describe("server", () => {
     assert.deepEqual(Object.keys(offices.team.agents), ["tester", "manager"]);
   });
 
+  test("builds an office from each team of opencode", async () => {
+    const crew = { tester: { color: "blue" }, builder: { color: "#a1b2c3" }, "bad key": { color: "red" } };
+    writeFileSync(join(DIR, "teams.json"), JSON.stringify({ crew }));
+    const offices = await json("/offices.json");
+    assert.deepEqual(offices.crew, {
+      title: "crew",
+      guests: GUESTS,
+      agents: {
+        builder: { title: "Builder", shirt: "#a1b2c3" },
+        tester: { title: "Tester", shirt: "#4f8fe8" },
+      },
+    });
+    assert.deepEqual(Object.keys(offices.crew.agents), ["builder", "tester"]);
+  });
+
   test("serves the limits only when there is data", async () => {
     assert.equal((await request("/limits.json")).status, 404);
     writeFileSync(join(DIR, "limits.json"), JSON.stringify(LIMITS));
     assert.deepEqual(await json("/limits.json"), LIMITS);
   });
 
-  test("does not reuse a server of another data folder", () => {
+  test("does not reuse a server of another data folder, and names another port in the tool's command", () => {
     const other = join(ROOT, "other");
-    const { status, stderr } = spawnSync(process.execPath, [SERVER, other, "main"], { env: ENV, encoding: "utf8" });
+    const next = PORT < 65535 ? PORT + 1 : 65534;
+    for (const command of ["/tidy-office:open", "/tidy-office/open"]) {
+      const args = [SERVER, other, "main", String(PORT), command];
+      const { status, stderr } = spawnSync(process.execPath, args, { encoding: "utf8" });
+      assert.equal(status, 1);
+      assert.equal(
+        stderr,
+        `Tidy Agent Office could not start on port ${PORT}. Pass another port, like \`${command} ${next}\`.\n`,
+      );
+    }
+  });
+
+  test("refuses a port that is not a whole number from 1024 to 65535", () => {
+    for (const port of ["1023", "65536", "0", "-8000", "7600x", "7.5", "1e4"]) {
+      const args = [SERVER, DIR, "main", port, "/tidy-office:open"];
+      const { status, stderr } = spawnSync(process.execPath, args, { encoding: "utf8" });
+      assert.equal(status, 1, port);
+      assert.equal(stderr, "The port must be a whole number from 1024 to 65535.\n", port);
+    }
+  });
+
+  test("refuses an open command it does not know", () => {
+    const { status, stderr } = spawnSync(process.execPath, [SERVER, DIR, "main", "", "/other"], { encoding: "utf8" });
     assert.equal(status, 1);
-    assert.equal(stderr, `Tidy Agent Office could not start on port ${PORT}.\n`);
+    assert.equal(stderr, 'Usage: node server.mjs <data-dir> <session-id> <port, or "" for 7542> <open-command>\n');
   });
 });

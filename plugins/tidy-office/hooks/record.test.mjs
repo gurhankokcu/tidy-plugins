@@ -94,6 +94,11 @@ describe("Claude Code hook", () => {
     assert.doesNotMatch(readFileSync(file("prompt"), "utf8"), /login/);
   });
 
+  test("leaves the text of a shell command out", () => {
+    record("command", "PreToolUse", { tool_name: "Bash", tool_input: { command: "echo test-token" } });
+    assert.doesNotMatch(readFileSync(file("command"), "utf8"), /test-token/);
+  });
+
   test("records a tool call with what it does", () => {
     record("tools", "PreToolUse", { tool_name: "Read", tool_input: { file_path: "/work/src/app.js" } });
     record("tools", "PreToolUse", { tool_name: "Bash", tool_input: { command: "npm test" } });
@@ -102,7 +107,7 @@ describe("Claude Code hook", () => {
     record("tools", "PreToolUse", { tool_name: "WebFetch", tool_input: { url: "https://example.com" } });
     assert.deepEqual(lines("tools"), [
       { event: "PreToolUse", tool: "Read", activity: "Read app.js" },
-      { event: "PreToolUse", tool: "Bash", activity: "npm test" },
+      { event: "PreToolUse", tool: "Bash", activity: "Bash" },
       { event: "PreToolUse", tool: "Grep", activity: 'Grep "TODO"' },
       { event: "PreToolUse", tool: "Agent", activity: "Agent team:tester" },
       { event: "PreToolUse", tool: "WebFetch", activity: "WebFetch" },
@@ -110,7 +115,7 @@ describe("Claude Code hook", () => {
   });
 
   test("cuts a long activity and a long message", () => {
-    record("cuts", "PreToolUse", { tool_name: "Bash", tool_input: { command: "x".repeat(200) } });
+    record("cuts", "PreToolUse", { tool_name: "Bash", tool_input: { description: "x".repeat(200) } });
     record("cuts", "Stop", { last_assistant_message: "y".repeat(300) });
     assert.deepEqual(lines("cuts"), [
       { event: "PreToolUse", tool: "Bash", activity: `${"x".repeat(79)}…` },
@@ -128,14 +133,17 @@ describe("Claude Code hook", () => {
     assert.equal(existsSync(file("../escape")), false);
   });
 
-  test("deletes the files older than a day when a session starts", () => {
+  test("deletes the session files older than a day when a session starts", () => {
     const old = new Date(Date.now() - 2 * DAY_MS);
-    writeFileSync(file("old"), "");
-    writeFileSync(file("fresh"), "");
-    utimesSync(file("old"), old, old);
+    const status = join(DIR, "old.status.json");
+    const teams = join(DIR, "teams.json");
+    for (const each of [file("old"), file("fresh"), status, teams]) writeFileSync(each, "");
+    for (const each of [file("old"), status, teams]) utimesSync(each, old, old);
     record("prune", "SessionStart");
     assert.equal(existsSync(file("old")), false);
+    assert.equal(existsSync(status), false);
     assert.equal(existsSync(file("fresh")), true);
+    assert.equal(existsSync(teams), true);
   });
 
   test("puts the status line script in the data folder when a session starts", () => {

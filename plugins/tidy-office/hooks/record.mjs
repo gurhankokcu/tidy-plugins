@@ -30,7 +30,7 @@ function describe(tool, input = {}) {
     case "Write":
       return `${tool} ${basename(input.file_path ?? "")}`;
     case "Bash":
-      return input.description ?? input.command;
+      return input.description ?? tool;
     case "Grep":
     case "Glob":
       return `${tool} "${input.pattern ?? ""}"`;

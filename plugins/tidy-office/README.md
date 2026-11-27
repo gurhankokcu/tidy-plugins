@@ -27,12 +27,12 @@ It needs opencode V2. The plugin follows the plugin API of opencode 2.3.1.
 
 In a session, type:
 
-| Tool        | Command             |
-| ----------- | ------------------- |
-| Claude Code | `/tidy-office:open` |
-| opencode    | `/tidy-office/open` |
+| Tool        | Command                    |
+| ----------- | -------------------------- |
+| Claude Code | `/tidy-office:open [port]` |
+| opencode    | `/tidy-office/open [port]` |
 
-It starts the server, or reuses it, and opens the page for this session.
+It starts the server, or reuses it, and opens the page for this session. Add a port to run the office on it, like `/tidy-office:open 7600`.
 
 The office comes from the main agent's name:
 
@@ -61,10 +61,10 @@ One line per event goes to a file on your machine. Nothing leaves it.
 | Events                    | `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `SubagentStart`, `SubagentStop`, `Stop`, `SessionEnd`                  |
 | The session's folder      | The full path, on session start                                                                                          |
 | Each agent                | Its ID, type, model and effort                                                                                           |
-| Each tool call            | The tool name and a summary of up to 80 characters: a file name, a search pattern, or a shell command or its description |
+| Each tool call            | The tool name and a summary of up to 80 characters: a file name, a search pattern, or a shell command's description      |
 | Each agent's last message | The first 280 characters                                                                                                 |
 
-The text of your prompts is not recorded. A shell command can hold a secret; its first 80 characters land in the file.
+The text of your prompts and of shell commands is not recorded. In Claude Code a shell command shows as its description, or as its tool name when it has none. In opencode it shows as `shell`.
 
 | Point       | Claude Code                                                                                                              | opencode                                                                               |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
@@ -74,16 +74,17 @@ The text of your prompts is not recorded. A shell command can hold a secret; its
 | Where       | `~/.claude/plugins/data/tidy-office-tidy-plugins/<session>.jsonl`                                                        | `~/.local/share/tidy-office/<session>.jsonl`                                           |
 | Speed       | The hooks run in the background, so they never slow a session down                                                       | One small write per event, inside opencode                                             |
 
-Files older than a day are deleted when a session starts.
+Session files older than a day, `<session>.jsonl` and `<session>.status.json`, are deleted when a session starts.
 
 ### The server
 
-| Point    | Detail                                                                                                                                           |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Address  | `127.0.0.1` only, on port 7341 for Claude Code and 7342 for opencode, so both offices can run at once. Set `TIDY_OFFICE_PORT` to change the port |
-| Requests | GET only, with a check of the `Host` header                                                                                                      |
-| Stops    | 30 seconds after its last tab closes                                                                                                             |
-| Code     | Node built-ins only                                                                                                                              |
+| Point    | Detail                                                                                                                                               |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Address  | `127.0.0.1` only, on port 7542. Add a port from 1024 to 65535 to the command to change it                                                            |
+| Port use | One office per port. With an office open in each tool, the second one needs another port, like `/tidy-office/open 7543`. The error shows the command |
+| Requests | GET only, with a check of the `Host` header                                                                                                          |
+| Stops    | 30 seconds after its last tab closes                                                                                                                 |
+| Code     | Node built-ins only                                                                                                                                  |
 
 ### Desks
 

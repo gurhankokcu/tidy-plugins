@@ -18,11 +18,13 @@ const LOCATION = { directory: "/work" };
 // Loads a copy of the plugin with its own stream of the events.
 async function load(events) {
   const hooks = new Map();
+  const commands = new Map();
   let end;
   const ended = new Promise((resolve) => (end = resolve));
   const stop = await plugin.setup({
+    agent: { list: async () => [] },
     tool: { hook: (name, callback) => hooks.set(name, callback) },
-    command: { transform: () => {} },
+    command: { transform: (edit) => edit({ add: (command) => commands.set(command.name, command) }) },
     event: {
       async *subscribe() {
         try {
@@ -33,7 +35,7 @@ async function load(events) {
       },
     },
   });
-  return { before: hooks.get("execute.before"), ended, stop };
+  return { before: hooks.get("execute.before"), open: commands.get("tidy-office/open"), ended, stop };
 }
 
 // Runs the plugin over the events and returns its tool hook, once every event is recorded.
@@ -153,7 +155,7 @@ describe("opencode plugin", () => {
     before({ sessionID: "tools", tool: "question" });
     assert.deepEqual(lines("tools"), [
       { event: "PreToolUse", tool: "read", activity: "read app.js" },
-      { event: "PreToolUse", tool: "shell", activity: "npm test" },
+      { event: "PreToolUse", tool: "shell", activity: "shell" },
       { event: "PreToolUse", tool: "grep", activity: 'grep "TODO"' },
       { event: "PreToolUse", tool: "subagent", activity: "subagent tidy-dev/tester" },
       { event: "PreToolUse", tool: "question", activity: "question" },
@@ -169,6 +171,15 @@ describe("opencode plugin", () => {
     ]);
     assert.deepEqual(JSON.parse(readFileSync(join(DIR, "teams.json"), "utf8")), {
       "tidy-dev": { manager: { color: "#9b59b6" }, tester: {} },
+    });
+  });
+
+  test("passes the typed port to the server", async () => {
+    const { open, ended, stop } = await load([]);
+    await ended;
+    stop();
+    await assert.rejects(open.execute({ sessionID: "open", prompt: { text: " 80 " } }), {
+      message: "The port must be a whole number from 1024 to 65535.",
     });
   });
 });
