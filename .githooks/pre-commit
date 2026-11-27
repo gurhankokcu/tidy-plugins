@@ -1,0 +1,30 @@
+#!/usr/bin/env node
+const { execFileSync } = require("node:child_process");
+
+const PLUGIN = /^plugins\/([^/]+)\//;
+const HEAD = "HEAD";
+const INDEX = "";
+
+function git(...args) {
+  return execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+}
+
+// Returns the version of a plugin in a tree, or null when the tree has no such plugin or no version.
+function version(tree, plugin) {
+  try {
+    return JSON.parse(git("show", `${tree}:plugins/${plugin}/.claude-plugin/plugin.json`)).version ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const staged = git("diff", "--cached", "--name-only", "--no-renames", "-z").split("\0");
+const plugins = new Set(staged.map((file) => file.match(PLUGIN)?.[1]).filter(Boolean));
+
+for (const plugin of plugins) {
+  const committed = version(HEAD, plugin);
+  if (committed === null || committed !== version(INDEX, plugin)) continue;
+  console.error(`${plugin}: its files changed and its version is still ${committed}.`);
+  console.error(`Bump it in plugins/${plugin}/.claude-plugin/plugin.json and plugins/${plugin}/package.json.`);
+  process.exitCode = 1;
+}

@@ -52,6 +52,16 @@ opencode plugin add 'github:gurhankokcu/tidy-plugins#main::path:plugins/tidy-git
 
 `tidy-git-guard` has nothing to type. It works from the moment it is installed.
 
+## Develop
+
+Turn on the git hooks, once per clone:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+The `pre-commit` hook stops a commit that changes a plugin and leaves its `version` as it was. Bump it in the plugin's `.claude-plugin/plugin.json` and `package.json`.
+
 ## License
 
 [MIT](LICENSE)
